@@ -1,0 +1,256 @@
+Value,Ag_Names,CSV_Names
+1,Corn,Category_001
+2,Cotton,Category_002
+3,Rice,Category_003
+4,Sorghum,Category_004
+5,Soybeans,Category_005
+6,Sunflower,Category_006
+7,,
+8,,
+9,,
+10,Peanuts,Category_010
+11,Tobacco,Category_011
+12,Sweet Corn,Category_012
+13,Pop or Orn Corn,Category_013
+14,Mint,Category_014
+15,,
+16,,
+17,,
+18,,
+19,,
+20,,
+21,Barley,Category_021
+22,Durum Wheat,Category_022
+23,Spring Wheat,Category_023
+24,Winter Wheat,Category_024
+25,Other Small Grains,Category_025
+26,Dbl Crop WinWht/Soybeans,Category_026
+27,Rye,Category_027
+28,Oats,Category_028
+29,Millet,Category_029
+30,Speltz,Category_030
+31,Canola,Category_031
+32,Flaxseed,Category_032
+33,Safflower,Category_033
+34,Rape Seed,Category_034
+35,Mustard,Category_035
+36,Alfalfa,Category_036
+37,Other Hay/Non Alfalfa,Category_037
+38,Camelina,Category_038
+39,Buckwheat,Category_039
+40,,
+41,Sugarbeets,Category_041
+42,Dry Beans,Category_042
+43,Potatoes,Category_043
+44,Other Crops,Category_044
+45,Sugarcane,Category_045
+46,Sweet Potatoes,Category_046
+47,Misc Vegs & Fruits,Category_047
+48,Watermelons,Category_048
+49,Onions,Category_049
+50,Cucumbers,Category_050
+51,Chick Peas,
+52,Lentils,Category_052
+53,Peas,Category_053
+54,Tomatoes,Category_054
+55,Caneberries,Category_055
+56,Hops,Category_056
+57,Herbs,Category_057
+58,Clover/Wildflowers,Category_058
+59,Sod/Grass Seed,Category_059
+60,Switchgrass,Category_060
+61,Fallow/Idle Cropland,Category_061
+62,Pasture/Grass,
+63,Forest,
+64,Shrubland,
+65,Barren,
+66,Cherries,Category_066
+67,Peaches,Category_067
+68,Apples,Category_068
+69,Grapes,Category_069
+70,Christmas Trees,Category_070
+71,Other Tree Crops,Category_071
+72,Citrus,Category_072
+73,,
+74,Pecans,Category_074
+75,Almonds,Category_075
+76,Walnuts,Category_076
+77,Pears,Category_077
+78,,
+79,,
+80,,
+81,Clouds/No Data,
+82,Developed,
+83,Water,
+84,,
+85,,
+86,,
+87,Wetlands,
+88,Nonag/Undefined,
+89,,
+90,,
+91,,
+92,Aquaculture,Category_092
+93,,
+94,,
+95,,
+96,,
+97,,
+98,,
+99,,
+100,,
+101,,
+102,,
+103,,
+104,,
+105,,
+106,,
+107,,
+108,,
+109,,
+110,,
+111,Open Water,Category_111
+112,Perennial Ice/Snow ,Category_112
+113,,
+114,,
+115,,
+116,,
+117,,
+118,,
+119,,
+120,,
+121,Developed/Open Space,Category_121
+122,Developed/Low Intensity,Category_122
+123,Developed/Med Intensity,Category_123
+124,Developed/High Intensity,Category_124
+125,,
+126,,
+127,,
+128,,
+129,,
+130,,
+131,Barren,Category_131
+132,,
+133,,
+134,,
+135,,
+136,,
+137,,
+138,,
+139,,
+140,,
+141,Deciduous Forest,Category_141
+142,Evergreen Forest,Category_142
+143,Mixed Forest,Category_143
+144,,
+145,,
+146,,
+147,,
+148,,
+149,,
+150,,
+151,,
+152,Shrubland,Category_152
+153,,
+154,,
+155,,
+156,,
+157,,
+158,,
+159,,
+160,,
+161,,
+162,,
+163,,
+164,,
+165,,
+166,,
+167,,
+168,,
+169,,
+170,,
+171,,
+172,,
+173,,
+174,,
+175,,
+176,Grassland/Pasture,Category_176
+177,,
+178,,
+179,,
+180,,
+181,,
+182,,
+183,,
+184,,
+185,,
+186,,
+187,,
+188,,
+189,,
+190,Woody Wetlands,Category_190
+191,,
+192,,
+193,,
+194,,
+195,Herbaceous Wetlands,Category_195
+196,,
+197,,
+198,,
+199,,
+200,,
+201,,
+202,,
+203,,
+204,Pistachios,Category_204
+205,Triticale,Category_205
+206,Carrots,Category_206
+207,Asparagus,Category_207
+208,Garlic,Category_208
+209,Cantaloupes,Category_209
+210,Prunes,
+211,Olives,Category_211
+212,Oranges,Category_212
+213,Honeydew Melons,Category_213
+214,Broccoli,Category_214
+215,Avocados,
+216,Peppers,Category_216
+217,Pomegranates,Category_217
+218,Nectarines,Category_218
+219,Greens,Category_219
+220,Plums,Category_220
+221,Strawberries,Category_221
+222,Squash,Category_222
+223,Apricots,Category_223
+224,Vetch,Category_224
+225,Dbl Crop WinWht/Corn,Category_225
+226,Dbl Crop Oats/Corn,Category_226
+227,Lettuce,Category_227
+228,,
+229,Pumpkins,Category_229
+230,Dbl Crop Lettuce/Durum Wht,Category_230
+231,Dbl Crop Lettuce/Cantaloupe,Category_231
+232,Dbl Crop Lettuce/Cotton,Category_232
+233,Dbl Crop Lettuce/Barley,
+234,Dbl Crop Durum Wht/Sorghum,Category_234
+235,Dbl Crop Barley/Sorghum,
+236,Dbl Crop WinWht/Sorghum,Category_236
+237,Dbl Crop Barley/Corn,Category_237
+238,Dbl Crop WinWht/Cotton,Category_238
+239,Dbl Crop Soybeans/Cotton,
+240,Dbl Crop Soybeans/Oats,Category_240
+241,Dbl Crop Corn/Soybeans,Category_241
+242,Blueberries,Category_242
+243,Cabbage,Category_243
+244,Cauliflower,Category_244
+245,Celery,Category_245
+246,Radishes,Category_246
+247,Turnips,Category_247
+248,Eggplants,Category_248
+249,Gourds,Category_249
+250,Cranberries,Category_250
+251,,
+252,,
+253,,
+254,Dbl Crop Barley/Soybeans,Category_254
+255,,

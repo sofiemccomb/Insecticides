@@ -1,0 +1,75 @@
+---
+title: "Data Processing"
+author: "Sofie McComb"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+```
+
+
+This R markdown document will gather and process the data necessary to perform the panel analyses laid out under the Analysis.Rmd. The data sources necessary for the analysis include up-to-date data for the Census of Agriculture (COA), USDA NASS Cropland Data Layer (CDL),National Land Cover Database (NLCD), and USDA Farm Resource Regions (Economic Service Research: ERS). The necessary data from each dataset will be gathered and combined together to have a full dataset in which each row is a unique County FIPS cod (determined by TIGER county shapefiles) per year of analysis (1997, 2002, 2007, 2012, 2017) where data availble.
+
+The data to gather includes:  
+
+1. COA
+    * County Area, Planted Area, Harvested Area, Failed Area 
+    * Total insecticides, Fertilizer, crop categories, irrigation, net cash income, large farm acreage
+2. CDL
+    * Crop diversity
+3. NLCD
+    * Patch/diversity metrics: Edge density, edge length, mean patch area, percentage of landscape, landscape diversity
+4. ERS Regions  
+
+
+More detail for each dataset will be given below as the data for each dataset is gathered and processed.
+
+
+##Data Processing
+
+```{r}
+
+# #Load the needed packages, which are loaded in the R scrips as well (install first if necessary)
+library(tidyverse) #Datatable manipulation (all functions)
+library(tools) #For file_path sans_ext (COA.R)
+library(purrr) #For reduce function using full_join (COA.R)
+library(zoo) #For na.locf function (COA.R)
+# library(ggplot2) #data visualization
+# library(stargazer)#regression and summary statistics tables
+# library(plm) #linear models for panel data
+# library(lmtest) #testing for linear regression models
+# library(readxl) #read excel .xlsx
+# library(janitor) #clean colnames
+# library(vegan)
+# 
+# #Set options
+# options(scipen=999) #no scientific notation
+
+
+
+```
+
+
+### 1) Census of Agriculture
+
+```{r COA, message=F, warning=F}
+
+#Prepare Census of Agriculture data (COA) needed for the regression analyses
+source ("R/COA.R")
+#Output saved as final_coa.csv saved under Data/df
+
+```
+
+
+### 2) CDL
+
+### 3) NLCD
+
+### 4) ERS
+
+
+## Data Combination
+
+
