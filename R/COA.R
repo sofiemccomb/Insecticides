@@ -3,11 +3,12 @@
   #From notes pull information about downloading each of the 22 items and made include separate doc with snippets in a reference folder in github
 
 #Load Packages
-    #Ensure necessary packages are installed an loaded
+    #Ensure necessary packages are installed and loaded
     library(tidyverse)
     library(tools)
     library(zoo)
     library(purrr)
+    options(scipen=999) #no scientific notation (all)
 
 #Load in all CoA files
     #List all file names
@@ -186,4 +187,4 @@
     final_coa[sapply(final_coa, is.infinite)]<-0
 
 #Write final Census of Ag Dataframe to be used in combination with other dataframes
-    write_csv(final_coa, "Data/df/final_coa.csv")
+    write_csv(final_coa, "Data/df/coa.csv")

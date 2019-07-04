@@ -41,11 +41,12 @@ library(zoo) #For na.locf function (COA.R)
 # library(plm) #linear models for panel data
 # library(lmtest) #testing for linear regression models
 # library(readxl) #read excel .xlsx
-# library(janitor) #clean colnames
-# library(vegan)
+
+library(janitor) #Clean colnames (CDL.R)
+library(vegan) #Perform diversity calculation (CDL.R)
 # 
-# #Set options
-# options(scipen=999) #no scientific notation
+#Set options
+options(scipen=999) #no scientific notation (all)
 
 
 
@@ -58,12 +59,22 @@ library(zoo) #For na.locf function (COA.R)
 
 #Prepare Census of Agriculture data (COA) needed for the regression analyses
 source ("R/COA.R")
-#Output saved as final_coa.csv saved under Data/df
+#Output saved as coa.csv saved under Data/df
 
 ```
 
 
 ### 2) CDL
+
+```{r CDL, message=F, warning=F}
+
+#Prepare Cropland Data Layer data (CDL) needed for the regression analyses
+source ("R/CDL.R")
+#Output saved as cdl.csv saved under Data/df
+
+```
+
+
 
 ### 3) NLCD
 
