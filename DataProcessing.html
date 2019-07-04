@@ -399,23 +399,73 @@ $(document).ready(function () {
 <li>ERS Regions</li>
 </ol>
 <p>More detail for each dataset will be given below as the data for each dataset is gathered and processed.</p>
-<pre class="r"><code># #Load the needed packages (install first if necessary)
-# library(tidyverse) #datatable manipulation
-# library(tools) #For file_path sans_ext
-# library(purrr) #Figure out why
-# library(zoo) #Figure out why
-# library(ggplot2) #data visualization
-# library(stargazer)#regression and summary statistics tables
-# library(plm) #linear models for panel data
-# library(lmtest) #testing for linear regression models
-# library(readxl) #read excel .xlsx
-# library(janitor) #clean colnames
-# library(vegan)
-# 
-# #Set options
-# options(scipen=999) #no scientific notation</code></pre>
+<div id="data-formatting" class="section level2">
+<h2>Data Formatting</h2>
+<pre class="r"><code>#Load the needed packages, which are loaded in the R scrips as well (install first if necessary)
+  library(tidyverse) #Datatable manipulation (all functions)
+  library(tools) #For file_path sans_ext (COA.R)
+  library(purrr) #For reduce function using full_join (COA.R)
+  library(zoo) #For na.locf function (COA.R)
+  library(janitor) #Clean colnames (CDL.R)
+  library(vegan) #Perform diversity calculation (CDL.R)
+  library(readxl) #read excel .xlsx (ERS data)
+
+#Set options
+  options(scipen=999) #no scientific notation (all)</code></pre>
 <div id="census-of-agriculture" class="section level3">
-<h3>Census of Agriculture</h3>
+<h3>1) Census of Agriculture</h3>
+<pre class="r"><code>#Prepare Census of Agriculture data (COA) needed for the regression analyses
+source (&quot;R/COA.R&quot;)
+#Output saved as coa.csv saved under Data/df</code></pre>
+</div>
+<div id="cdl" class="section level3">
+<h3>2) CDL</h3>
+<pre class="r"><code>#Prepare Cropland Data Layer data (CDL) needed for the regression analyses
+source (&quot;R/CDL.R&quot;)
+#Output saved as cdl.csv saved under Data/df</code></pre>
+</div>
+<div id="nlcd" class="section level3">
+<h3>3) NLCD</h3>
+<pre class="r"><code>#Prepare National Land Cover Database (NLCD) analyses needed for the regression analyses, which have already been run through fragstats using the R/NF.R script 
+source (&quot;R/NLCD.R&quot;)
+#Output saved as nlcd.csv saved under Data/df</code></pre>
+</div>
+<div id="ers" class="section level3">
+<h3>4) ERS</h3>
+<pre class="r"><code>#Read in ERS file, to be combined with other data as is
+ERS&lt;-readxl::read_xls(&quot;Data/ERS/ERSRegions_To_Counties.xls&quot;)
+ERS&lt;-ERS[,1:3]
+colnames(ERS)&lt;-c(&quot;FIPS&quot;, &quot;ERSCode&quot;, &quot;ERSName&quot;)</code></pre>
+</div>
+</div>
+<div id="data-combination" class="section level2">
+<h2>Data Combination</h2>
+<p>Combine the COA, CDL, NLCD, and ERS data to create final dataframe to be saved and used in regression analyses (Analysis.Rmd)</p>
+<pre class="r"><code>#Read in the datasets
+coa&lt;-readr::read_csv(&quot;Data/df/coa.csv&quot;)
+cdl&lt;-readr::read_csv(&quot;Data/df/cdl.csv&quot;)
+nlcd&lt;-readr::read_csv(&quot;Data/df/nlcd.csv&quot;)
+
+#List and merge three datasets by the unique combination of FIPS and Year Values
+fulldata&lt;-list(coa, cdl, nlcd) %&gt;% 
+  reduce(full_join, by=c(&quot;FIPS&quot;, &quot;Year&quot;))
+
+#Merge with ERS by just FIPS
+fulldata&lt;-list(fulldata, ERS) %&gt;% 
+  reduce(full_join, by=c(&quot;FIPS&quot;))
+
+#Drop the 9 VA counties 51515, 51530, 51580, 51595, 51600, 51610, 51678,51685, 51720 
+  #that had NA in CDL and that are essentially within other counties
+fulldata&lt;-fulldata %&gt;%
+  filter(!(FIPS==51515)&amp;!(FIPS==51530)&amp;!(FIPS==51580)&amp;!(FIPS==51595)&amp;!(FIPS==51600)&amp;
+           !(FIPS==51610)&amp;!(FIPS==51678)&amp;!(FIPS==51685)&amp;!(FIPS==51720))
+
+#Explore the COA data missing (about 31 rows)
+
+#Add in other cropland calculations here for regression?
+
+#Write fulldata to df folder be used in regression analyses
+    write_csv(fulldata, &quot;Data/df/fulldata.csv&quot;)</code></pre>
 </div>
 
 

@@ -8,3 +8,33 @@ output: html_document
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
+
+
+
+## Data Formatting
+
+```{r packages, message=F, warning=F}
+
+# #Load the needed packages, which are loaded in the R scrips as well (install first if necessary)
+library(tidyverse) #Datatable manipulation (all functions)
+library(tools) #For file_path sans_ext (COA.R)
+library(purrr) #For reduce function using full_join (COA.R)
+library(zoo) #For na.locf function (COA.R)
+library(janitor) #Clean colnames (CDL.R)
+library(vegan) #Perform diversity calculation (CDL.R)
+library(readxl) #read excel .xlsx (ERS data)
+# library(ggplot2) #data visualization
+# library(stargazer)#regression and summary statistics tables
+# library(plm) #linear models for panel data
+# library(lmtest) #testing for linear regression models
+
+
+
+# 
+#Set options
+options(scipen=999) #no scientific notation (all)
+
+
+
+```
+

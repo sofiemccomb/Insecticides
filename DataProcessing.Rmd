@@ -27,28 +27,21 @@ The data to gather includes:
 More detail for each dataset will be given below as the data for each dataset is gathered and processed.
 
 
-##Data Processing
+## Data Formatting
 
-```{r}
+```{r packages, message=F, warning=F}
 
-# #Load the needed packages, which are loaded in the R scrips as well (install first if necessary)
-library(tidyverse) #Datatable manipulation (all functions)
-library(tools) #For file_path sans_ext (COA.R)
-library(purrr) #For reduce function using full_join (COA.R)
-library(zoo) #For na.locf function (COA.R)
-# library(ggplot2) #data visualization
-# library(stargazer)#regression and summary statistics tables
-# library(plm) #linear models for panel data
-# library(lmtest) #testing for linear regression models
-# library(readxl) #read excel .xlsx
+#Load the needed packages, which are loaded in the R scrips as well (install first if necessary)
+  library(tidyverse) #Datatable manipulation (all functions)
+  library(tools) #For file_path sans_ext (COA.R)
+  library(purrr) #For reduce function using full_join (COA.R)
+  library(zoo) #For na.locf function (COA.R)
+  library(janitor) #Clean colnames (CDL.R)
+  library(vegan) #Perform diversity calculation (CDL.R)
+  library(readxl) #read excel .xlsx (ERS data)
 
-library(janitor) #Clean colnames (CDL.R)
-library(vegan) #Perform diversity calculation (CDL.R)
-# 
 #Set options
-options(scipen=999) #no scientific notation (all)
-
-
+  options(scipen=999) #no scientific notation (all)
 
 ```
 
@@ -78,9 +71,63 @@ source ("R/CDL.R")
 
 ### 3) NLCD
 
+
+```{r NLCD, message=F, warning=F}
+
+#Prepare National Land Cover Database (NLCD) analyses needed for the regression analyses, which have already been run through fragstats using the R/NF.R script 
+source ("R/NLCD.R")
+#Output saved as nlcd.csv saved under Data/df
+
+```
+
+
+
 ### 4) ERS
+
+```{r ERS, message=F, warning=F}
+
+#Read in ERS file, to be combined with other data as is
+ERS<-readxl::read_xls("Data/ERS/ERSRegions_To_Counties.xls")
+ERS<-ERS[,1:3]
+colnames(ERS)<-c("FIPS", "ERSCode", "ERSName")
+
+
+```
+
 
 
 ## Data Combination
 
+Combine the COA, CDL, NLCD, and ERS data to create final dataframe to be saved and used in regression analyses (Analysis.Rmd)
+
+
+```{r combine, message=F, warning=F}
+
+#Read in the datasets
+coa<-readr::read_csv("Data/df/coa.csv")
+cdl<-readr::read_csv("Data/df/cdl.csv")
+nlcd<-readr::read_csv("Data/df/nlcd.csv")
+
+#List and merge three datasets by the unique combination of FIPS and Year Values
+fulldata<-list(coa, cdl, nlcd) %>% 
+  reduce(full_join, by=c("FIPS", "Year"))
+
+#Merge with ERS by just FIPS
+fulldata<-list(fulldata, ERS) %>% 
+  reduce(full_join, by=c("FIPS"))
+
+#Drop the 9 VA counties 51515, 51530, 51580, 51595, 51600, 51610, 51678,51685, 51720 
+  #that had NA in CDL and that are essentially within other counties
+fulldata<-fulldata %>%
+  filter(!(FIPS==51515)&!(FIPS==51530)&!(FIPS==51580)&!(FIPS==51595)&!(FIPS==51600)&
+           !(FIPS==51610)&!(FIPS==51678)&!(FIPS==51685)&!(FIPS==51720))
+
+#Explore the COA data missing (about 31 rows)
+
+#Add in other cropland calculations here for regression?
+
+#Write fulldata to df folder be used in regression analyses
+    write_csv(fulldata, "Data/df/fulldata.csv")
+
+```
 
