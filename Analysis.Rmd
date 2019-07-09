@@ -127,74 +127,44 @@ Call the name of the model when run the name of the model saved. Whenever it wil
 ### 1) Counties Pooled (cp)
 
 Eventually made put this in a separate script and source it
+#Create list of models and save that as as RDA
 
 ```{r pooled, message=F, warning=F}
 #For each option perform: twoways, individual, and time fixed effects
 
 #A) All 7 variables
 cp_twoways_var7<-run_plm(predictors=var7)
-save(cp_twoways_var7, file = paste0("Data/models/cp_twoways_var7.rda"))
-
 cp_individual_var7<-run_plm(predictors=var7, effect = "individual")
-save(cp_individual_var7, file = paste0("Data/models/cp_individual_var7.rda"))
-
 cp_time_var7<-run_plm(predictors=var7, effect = "time")
-save(cp_time_var7, file = paste0("Data/models/cp_time_var7.rda"))
-
 
 #B) 6 variables (no CDL)
 cp_twoways_var6<-run_plm(predictors=var6)
-save(cp_twoways_var6, file = paste0("Data/models/cp_twoways_var6.rda"))
-
 cp_individual_var6<-run_plm(predictors=var6, effect = "individual")
-save(cp_individual_var6, file = paste0("Data/models/cp_individual_var6.rda"))
-
 cp_time_var6<-run_plm(predictors=var6, effect = "time")
-save(cp_time_var6, file = paste0("Data/models/cp_time_var6.rda"))
-
-
 
 #C) 6 variables (no CDL) but only 2007, 2012, and 2017 to match 3 years with CDL
 cp_twoways_var6_3yrs<-run_plm(predictors=var6, data=fulldata_3yrs)
-save(cp_twoways_var6_3yrs, file = paste0("Data/models/cp_twoways_var6_3yrs.rda"))
-
 cp_individual_var6_3yrs<-run_plm(predictors=var6, effect = "individual", data=fulldata_3yrs)
-save(cp_individual_var6_3yrs, file = paste0("Data/models/cp_individual_var6_3yrs.rda"))
-
 cp_time_var6_3yrs<-run_plm(predictors=var6, effect = "time", data=fulldata_3yrs)
-save(cp_time_var6_3yrs, file = paste0("Data/models/cp_time_var6_3yrs.rda"))
-
 
 #D) All crops covariates, repeating A-C with these inclusions
 #var7crops
 cp_twoways_var7crops<-run_plm(predictors=var7crops)
-save(cp_twoways_var7crops, file = paste0("Data/models/cp_twoways_var7crops.rda"))
-
 cp_individual_var7crops<-run_plm(predictors=var7crops, effect = "individual")
-save(cp_individual_var7crops, file = paste0("Data/models/cp_individual_var7crops.rda"))
-
 cp_time_var7crops<-run_plm(predictors=var7crops, effect = "time")
-save(cp_time_var7crops, file = paste0("Data/models/cp_time_var7crops.rda"))
 
 #var6crops
 cp_twoways_var6crops<-run_plm(predictors=var6crops)
-save(cp_twoways_var6crops, file = paste0("Data/models/cp_twoways_var6crops.rda"))
-
 cp_individual_var6crops<-run_plm(predictors=var6crops, effect = "individual")
-save(cp_individual_var6crops, file = paste0("Data/models/cp_individual_var6crops.rda"))
-
 cp_time_var6crops<-run_plm(predictors=var6crops, effect = "time")
-save(cp_time_var6crops, file = paste0("Data/models/cp_time_var6crops.rda"))
 
 #var6crops with fulldata_3yrs
 cp_twoways_var6crops_3yrs<-run_plm(predictors=var6crops, data=fulldata_3yrs)
-save(cp_twoways_var6crops_3yrs, file = paste0("Data/models/cp_twoways_var6crops_3yrs.rda"))
-
 cp_individual_var6crops_3yrs<-run_plm(predictors=var6crops, effect = "individual", data=fulldata_3yrs)
-save(cp_individual_var6crops_3yrs, file = paste0("Data/models/cp_individual_var6crops_3yrs.rda"))
-
 cp_time_var6crops_3yrs<-run_plm(predictors=var6crops, effect = "time", data=fulldata_3yrs)
-save(cp_time_var6crops_3yrs, file = paste0("Data/models/cp_time_var6crops_3yrs.rda"))
+
+models<-list(cp_twoways_var7,cp_individual_var7,cp_time_var7)
+save(models, file = paste0("Data/models/models"))
 
 
 
@@ -221,3 +191,54 @@ save(modelnm, file = paste0("Data/models/testing.rda"))
 
 
 ```
+
+
+#Potential possibility of extracting information from heach model and running it
+#Could list the models?
+
+An object of class c("plm", "panelmodel").
+
+A "plm" object has the following elements :
+
+coefficients: the vector of coefficients,
+vcov: the variance–covariance matrix of the coefficients,
+residuals: the vector of residuals (these are the residuals of the (quasi-)demeaned model),
+weights: (only for weighted estimations) weights as specified,
+df.residual: degrees of freedom of the residuals,
+formula	: an object of class "pFormula" describing the model,
+model	: the model frame as a "pdata.frame" containing the variables used for estimation: the response is in first column followed by the other variables, the individual and time indexes are in the 'index' attribute of model,
+ercomp	: an object of class "ercomp" providing the estimation of the components of the errors (for random effects models only),
+aliased	: named logical vector indicating any aliased coefficients which are silently dropped by plm due to linearly dependent terms (see also detect.lindep),
+call	:the call.
+
+
+```{r}
+
+myFun <-
+function(plm)
+{
+out <- c(plm$coefficients[1],
+	lm$coefficients[2],
+	length(lm$model$y),
+	summary(lm)$coefficients[2,2],
+	pf(summary(lm)$fstatistic[1], summary(lm)$fstatistic[2],
+summary(lm)$fstatistic[3], lower.tail = FALSE),
+	summary(lm)$r.squared)
+names(out) <- c("intercept","slope","n","slope.SE","p.value","r.squared")
+return(out)}
+
+
+#Edit above on the list of models
+
+#Plm object has the follwing elements
+#want to save and report the coefficients,
+
+#vcov is cool but har to include in csv table
+
+cp_var7$coefficients
+cp_var7$vcov
+
+
+
+```
+
