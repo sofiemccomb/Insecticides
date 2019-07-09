@@ -1,7 +1,6 @@
 ---
 title: "Analysis"
 author: "Sofie McComb"
-date: "7/3/2019"
 output: html_document
 ---
 
@@ -9,6 +8,28 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
+This R Markdown document will ...
+
+The regression combinations I need:
+
+Write out all the options 
+Fraction Crop (Area)=pland_crops
+Crop Intensity (harv ac/area crop (NLCD*CoA))=cropintensity
+Crop diversity=SDI
+Landscape diversity=msidi
+Edge Natural habitat-crop=te_shared_c_nc
+Patch size of cropland= mna_crops
+Large Farms (Acreage harv acres to farms >500acres)=largefarm_planted
+
+
++crop covariates (fruits, veg, etc)=soysmallgrain_planted + corn_planted + fruitveg_planted
++county, year FES
+Run for all counties pooled and Run for ERS regions
+Possible additional: income_planted  + irrigate_planted
+
+Model ignoring CDL as well to have all the years
+
+The other regression column desired is shared edge length between natural and cropland (which is tel_naturalcrops_nc) divided by the total edge length of crop (tec_crops_nc), which is already a created column called te_shared_c_nc
 
 
 ## Data Formatting
@@ -23,11 +44,10 @@ library(zoo) #For na.locf function (COA.R)
 library(janitor) #Clean colnames (CDL.R)
 library(vegan) #Perform diversity calculation (CDL.R)
 library(readxl) #read excel .xlsx (ERS data)
-# library(ggplot2) #data visualization
-# library(stargazer)#regression and summary statistics tables
-# library(plm) #linear models for panel data
-# library(lmtest) #testing for linear regression models
-
+library(ggplot2) #data visualization
+library(stargazer)#regression and summary statistics tables
+library(plm) #linear models for panel data
+library(lmtest) #testing for linear regression models
 
 
 # 
@@ -38,3 +58,166 @@ options(scipen=999) #no scientific notation (all)
 
 ```
 
+
+
+
+### Panel Fixed effects lm
+
+Helpful websites: https://rstudio-pubs-static.s3.amazonaws.com/372492_3e05f38dd3f248e89cdedd317d603b9a.html 
+https://cran.r-project.org/web/packages/plm/vignettes/plmPackage.html
+
+
+Versions of regression:
+1. All counties pooled (twoways, individual, time)
+  a. All 7 variables (use var7)
+  b. 6 variables (no CDL) (use var6)
+  c. 6 variables (no CDL)-but just 3 years that have CDL (not 1997/2002) (use var6 on subset data)
+  d. With all crop covariates
+  e. Future choices: other variable combinations or just one variable each
+2. ERS Regions
+  *Same as above but substetted by regions
+
+## Source Data and Code
+
+```{r source, message=F, warning=F}
+
+source("R/run_plm.R")
+load("Data/df/fulldata.rda")
+
+```
+
+#### PLM Function 
+  run_plm<-function(predictors,
+                    data=fulldata,index = c("FIPS","Year"), model = "within",effect = "twoways"){
+    Formula=as.formula(paste("insect_planted ~ ", paste(predictors, collapse=" + ")))
+    plm_model<-plm(Formula, 
+                   data = data,
+                   index = index,
+                   model = model,
+                   effect = effect)
+    return(plm_model)
+  }
+
+### Establish Model Inputs
+
+```{r model inputs, message=F, warning=F}
+
+#Create Variable Combinations
+var7<-c("pland_crops","cropintensity", "msidi","mna_crops","largefarm_planted","te_shared_c_nc","SDI")
+var6<-c("pland_crops","cropintensity", "msidi","mna_crops","largefarm_planted","te_shared_c_nc")
+var7crops<-c("pland_crops","cropintensity", "msidi","mna_crops","largefarm_planted","te_shared_c_nc","SDI",
+             "soysmallgrain_planted", "corn_planted", "fruitveg_planted")
+var6crops<-c("pland_crops","cropintensity", "msidi","mna_crops","largefarm_planted","te_shared_c_nc",
+             "soysmallgrain_planted", "corn_planted", "fruitveg_planted")
+
+#Data subset that has 1997 and 2002 removed, since there are so many NAs for those years across the datasets
+fulldata_3yrs<-fulldata[fulldata$Year!=1997&fulldata$Year!=2002,]
+
+```
+
+
+Creating subsets of fulldata to be used to run regressions on specific subsets of the data.???
+Instead for ERS or other subsets just create a forloop in that section that subsets the fulldata
+by a set iteration (such as the 9 ERS numbers) and then saves the model by that iteration number
+
+
+## Run Regressions
+Call the name of the model when run the name of the model saved. Whenever it will be loaded back, it will be loaded to that exact same name.
+
+### 1) Counties Pooled (cp)
+
+Eventually made put this in a separate script and source it
+
+```{r pooled, message=F, warning=F}
+#For each option perform: twoways, individual, and time fixed effects
+
+#A) All 7 variables
+cp_twoways_var7<-run_plm(predictors=var7)
+save(cp_twoways_var7, file = paste0("Data/models/cp_twoways_var7.rda"))
+
+cp_individual_var7<-run_plm(predictors=var7, effect = "individual")
+save(cp_individual_var7, file = paste0("Data/models/cp_individual_var7.rda"))
+
+cp_time_var7<-run_plm(predictors=var7, effect = "time")
+save(cp_time_var7, file = paste0("Data/models/cp_time_var7.rda"))
+
+
+#B) 6 variables (no CDL)
+cp_twoways_var6<-run_plm(predictors=var6)
+save(cp_twoways_var6, file = paste0("Data/models/cp_twoways_var6.rda"))
+
+cp_individual_var6<-run_plm(predictors=var6, effect = "individual")
+save(cp_individual_var6, file = paste0("Data/models/cp_individual_var6.rda"))
+
+cp_time_var6<-run_plm(predictors=var6, effect = "time")
+save(cp_time_var6, file = paste0("Data/models/cp_time_var6.rda"))
+
+
+
+#C) 6 variables (no CDL) but only 2007, 2012, and 2017 to match 3 years with CDL
+cp_twoways_var6_3yrs<-run_plm(predictors=var6, data=fulldata_3yrs)
+save(cp_twoways_var6_3yrs, file = paste0("Data/models/cp_twoways_var6_3yrs.rda"))
+
+cp_individual_var6_3yrs<-run_plm(predictors=var6, effect = "individual", data=fulldata_3yrs)
+save(cp_individual_var6_3yrs, file = paste0("Data/models/cp_individual_var6_3yrs.rda"))
+
+cp_time_var6_3yrs<-run_plm(predictors=var6, effect = "time", data=fulldata_3yrs)
+save(cp_time_var6_3yrs, file = paste0("Data/models/cp_time_var6_3yrs.rda"))
+
+
+#D) All crops covariates, repeating A-C with these inclusions
+#var7crops
+cp_twoways_var7crops<-run_plm(predictors=var7crops)
+save(cp_twoways_var7crops, file = paste0("Data/models/cp_twoways_var7crops.rda"))
+
+cp_individual_var7crops<-run_plm(predictors=var7crops, effect = "individual")
+save(cp_individual_var7crops, file = paste0("Data/models/cp_individual_var7crops.rda"))
+
+cp_time_var7crops<-run_plm(predictors=var7crops, effect = "time")
+save(cp_time_var7crops, file = paste0("Data/models/cp_time_var7crops.rda"))
+
+#var6crops
+cp_twoways_var6crops<-run_plm(predictors=var6crops)
+save(cp_twoways_var6crops, file = paste0("Data/models/cp_twoways_var6crops.rda"))
+
+cp_individual_var6crops<-run_plm(predictors=var6crops, effect = "individual")
+save(cp_individual_var6crops, file = paste0("Data/models/cp_individual_var6crops.rda"))
+
+cp_time_var6crops<-run_plm(predictors=var6crops, effect = "time")
+save(cp_time_var6crops, file = paste0("Data/models/cp_time_var6crops.rda"))
+
+#var6crops with fulldata_3yrs
+cp_twoways_var6crops_3yrs<-run_plm(predictors=var6crops, data=fulldata_3yrs)
+save(cp_twoways_var6crops_3yrs, file = paste0("Data/models/cp_twoways_var6crops_3yrs.rda"))
+
+cp_individual_var6crops_3yrs<-run_plm(predictors=var6crops, effect = "individual", data=fulldata_3yrs)
+save(cp_individual_var6crops_3yrs, file = paste0("Data/models/cp_individual_var6crops_3yrs.rda"))
+
+cp_time_var6crops_3yrs<-run_plm(predictors=var6crops, effect = "time", data=fulldata_3yrs)
+save(cp_time_var6crops_3yrs, file = paste0("Data/models/cp_time_var6crops_3yrs.rda"))
+
+
+
+```
+
+
+
+### 2) By ERS Region
+
+
+```{r}
+
+
+#variables <- c("harv_county", "SDI")
+variables<-c("pland_crops","cropintensity","SDI", "msidi","mna_crops","largefarm_planted","te_shared_c_nc")
+#Could make a whole bunch of versions and then apply the function to the list of variable lists, and then combine the results
+
+modelnm<-run_plm(predictors=variables)
+save(modelnm, file = paste0("Data/models/testing.rda"))
+
+#Instead of stargazer maybe just save rda of each model
+#And later go through whole folder, pull them in, and put info from them in compiled text pdf
+#And then maybe csv
+
+
+```

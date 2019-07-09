@@ -122,12 +122,27 @@ fulldata<-fulldata %>%
   filter(!(FIPS==51515)&!(FIPS==51530)&!(FIPS==51580)&!(FIPS==51595)&!(FIPS==51600)&
            !(FIPS==51610)&!(FIPS==51678)&!(FIPS==51685)&!(FIPS==51720))
 
-#Explore the COA data missing (about 31 rows)
+#Explore the COA data missing
+  #Going to currently leave in the other counties that are suffering similar issues (no CoA data) as they will be dropped with the regression 
+  #Most are FIPS for areas that made part of a county become an independent city (almost all in VA)
+  #Good explanation here: http://www.nber.org/asg/ASG_release/County_City/FIPS/FIPS_Changes.pdf
+  #Those counties are: 
+    #11001, 24510, 29510, 46113, 51510, 51520, 51540, 51570, 51590, 51620, 51630, 51640, 51650, 51660, 51670, 51680, 51683, 51690, 51700, 51710, 51730, 51735, 51740, 51750, 51760, 51770, 51775, 51790, 51820, 51830, 51840, 8014, 51560, 51780, 12025, 30113
 
-#Add in other cropland calculations here for regression?
+#Add in column calculating Crop Intensity needed for regression
+  #harvcrop/((pland_crops/100)*countyarea)
+  #Harvested Crop Acreage/Crop Land Acreage, 
+    #where both acreages (harvcrop and countryarea) are from CoA and
+    #pland_crops is from the NLCD
 
+fulldata<-fulldata %>% 
+  dplyr::mutate(cropintensity=harvcrop/((pland_crops/100)*countyarea))
+  
+#Replace infinite values with NA for regression 
+  fulldata$cropintensity[sapply(fulldata$cropintensity, is.infinite)]<-NA
+    
 #Write fulldata to df folder be used in regression analyses
     write_csv(fulldata, "Data/df/fulldata.csv")
+    save(fulldata, file = "Data/df/fulldata.rda")
 
 ```
-
