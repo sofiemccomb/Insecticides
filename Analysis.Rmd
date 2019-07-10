@@ -36,35 +36,29 @@ The other regression column desired is shared edge length between natural and cr
 
 ```{r packages, message=F, warning=F}
 
-# #Load the needed packages, which are loaded in the R scrips as well (install first if necessary)
-library(tidyverse) #Datatable manipulation (all functions)
-library(tools) #For file_path sans_ext (COA.R)
-library(purrr) #For reduce function using full_join (COA.R)
-library(zoo) #For na.locf function (COA.R)
-library(janitor) #Clean colnames (CDL.R)
-library(vegan) #Perform diversity calculation (CDL.R)
-library(readxl) #read excel .xlsx (ERS data)
-library(ggplot2) #data visualization
-library(stargazer)#regression and summary statistics tables
-library(plm) #linear models for panel data
-library(lmtest) #testing for linear regression models
+#Load the needed packages (install first if necessary)
+library(tidyverse) #Datatable manipulation
+library(purrr) #For reduce function using full_join
+library(plm) #Linear models for panel data
+library(stats) #For as.formula function
+library(car) # For calculating variance inflation factors (vif)
+library(rlang) #For xtsum function creation
+library(gdata) #For combine in xtsum function
+library(ggplot2) #Data visualization
+library(stargazer)#Regression and summary statistics tables
 
-
-# 
 #Set options
 options(scipen=999) #no scientific notation (all)
 
-
-
 ```
-
-
-
 
 ### Panel Fixed effects lm
 
 Helpful websites: https://rstudio-pubs-static.s3.amazonaws.com/372492_3e05f38dd3f248e89cdedd317d603b9a.html 
 https://cran.r-project.org/web/packages/plm/vignettes/plmPackage.html
+
+#Good article on missing NA impacting lm analysis: https://stats.idre.ucla.edu/r/faq/how-does-r-handle-missing-values/
+#Default is na.omit-works to exclude the NA value rows from analysis
 
 
 Versions of regression:
@@ -77,28 +71,25 @@ Versions of regression:
 2. ERS Regions
   *Same as above but substetted by regions
 
-## Source Data and Code
+## Load Data
 
-```{r source, message=F, warning=F}
+```{r data, message=F, warning=F}
 
-source("R/run_plm.R")
 load("Data/df/fulldata.rda")
 
 ```
 
-#### PLM Function 
-  run_plm<-function(predictors,
-                    data=fulldata,index = c("FIPS","Year"), model = "within",effect = "twoways"){
-    Formula=as.formula(paste("insect_planted ~ ", paste(predictors, collapse=" + ")))
-    plm_model<-plm(Formula, 
-                   data = data,
-                   index = index,
-                   model = model,
-                   effect = effect)
-    return(plm_model)
-  }
+### Examine Data with XTSUM
 
-### Establish Model Inputs
+```{r xtsum, message=F, warning=F}
+
+#Source xtsumR script to examine variation within variables (fips, year) from fulldata and load saved analysis dataframe
+source("R/xtsumR.R")
+load("Data/models/xtsum_df.Rda")
+
+```
+
+### Establish Model Inputs (For CP and ERS models)
 
 ```{r model inputs, message=F, warning=F}
 
@@ -116,63 +107,135 @@ fulldata_3yrs<-fulldata[fulldata$Year!=1997&fulldata$Year!=2002,]
 ```
 
 
-Creating subsets of fulldata to be used to run regressions on specific subsets of the data.???
-Instead for ERS or other subsets just create a forloop in that section that subsets the fulldata
-by a set iteration (such as the 9 ERS numbers) and then saves the model by that iteration number
-
-
 ## Run Regressions
-Call the name of the model when run the name of the model saved. Whenever it will be loaded back, it will be loaded to that exact same name.
+Perform the regressions within separate R scripts, and have lists of the performed models loadable as rda file in order to perform analyses on the model results and create dataframes of results across models. All regressions are run using the "R/run_plm.R" script, which contains the run_plm function for performing panel linear model regressions. The script is sourced directly in the analysis scripts that are used below.
+
+The general format is:  
+
+run_plm<-function(predictors, data=fulldata,index = c("FIPS","Year"), model = "within",effect = "twoways"){
+  Formula=stats::as.formula(paste("insect_planted ~ ", paste(predictors, collapse=" + ")))
+  plm_model<-plm::plm(Formula, data = data,index = index,model = model,effect = effect)
+  return(plm_model)}
 
 ### 1) Counties Pooled (cp)
 
-Eventually made put this in a separate script and source it
+The cpmodels script performs the plm models for all counties pooled together using the run_plm functoin/script, and the list of model results are loaded and analyzed below.
+
 #Create list of models and save that as as RDA
 
-```{r pooled, message=F, warning=F}
+```{r cpmodels, message=F, warning=F}
+
+#Script runs the counties pooled (cp) regression models and creates .Rda file of list of plm models (edit models in R script)
+source("R/cpmodels.R") #Takes a few minutes to run both within and pooling models
+load("Data/models/cpmodels_within.Rda")
+load("Data/models/cpmodels_pooling.Rda")
+
+```
+
+#Create dataframe of important model information from list of cpmodels
+
+```{r cp_df, message=F, warning=F}
+
+#Create dataframe of coefficient from each model (using within)
+cp_coef_df<- lapply(cpmodels_within,function(l){rownames_to_column(as.data.frame(l$coefficient), "variable")})%>% 
+  purrr::reduce(full_join, by = "variable") %>% 
+  setNames(c("variable", names(cpmodels_within)))
+
+#Create dataframe of coefficient from each model (using within)
+cp_pval_df<- lapply(cpmodels_within, function(l){rownames_to_column(as.data.frame(summary(l)$coefficients[,4]),"variable")}) %>%
+  purrr::reduce(full_join, by = "variable") %>% 
+  setNames(c("variable", names(cpmodels_within))) %>% 
+   mutate_if(is.numeric, round, digits=5)
+
+#Run variance inflation factor (vif) to look at multicollinearity between variables and look at correlation matrices
+  #Can only run on model=pooling for plm (however vif about indepdenent variables so theoretically less need to control for effects) (https://stackoverflow.com/questions/20281055/test-for-multicollinearity-in-panel-data-r/20291097#20291097)
+  #VIF of 1=no correlation among predictors, >4 investigate, >10 serious correction
+
+    #VIF on pooled data
+    cp_vif<-lapply(cpmodels_pooling, function(p){car::vif(p)})
+    #Correlation matric on within data
+    cp_corr<-lapply(cpmodels_within, function(v){cov2cor(v$vcov)})
+
+```
+
+
+#****Next Steps
+2. Do same thing below with ERS- adding in for loop to subset by ERS and apply name that way (look at COA scrips?)
+5. Notes and metadata on scripts and dataframes
+
+Go back and add in the :: for calls, all libraries, and way more descriptions to all scripts and markdowns
+
+
+### 2) By ERS Region
+
+The ERS zones are 
+1: Heartland
+2: Northern Crescent
+3: Northern Great Plains
+4: Prairie Gateway
+5: Eastern Uplands
+6: Southern Seaboard
+7: Fruitful Rim
+8: Basin and Range
+9: Mississippi Portal
+
+    assign("a",get("b"))
+
+
+```{r ERS, message=F, warning=F}
+
+#Eventually by i and iterate through
+data_by_ERS<-fulldata[fulldata$ERSCode==1,]
+data_by_ERS_3yrs<-fulldata_3yrs[fulldata_3yrs$ERSCode==1,]
+
 #For each option perform: twoways, individual, and time fixed effects
 
 #A) All 7 variables
-cp_twoways_var7<-run_plm(predictors=var7)
-cp_individual_var7<-run_plm(predictors=var7, effect = "individual")
-cp_time_var7<-run_plm(predictors=var7, effect = "time")
+ERS_twoways_var7<-run_plm(predictors=var7, data=data_by_ERS)
+ERS_individual_var7<-run_plm(predictors=var7, effect = "individual",data=data_by_ERS)
+ERS_time_var7<-run_plm(predictors=var7, effect = "time",data=data_by_ERS)
 
 #B) 6 variables (no CDL)
-cp_twoways_var6<-run_plm(predictors=var6)
-cp_individual_var6<-run_plm(predictors=var6, effect = "individual")
-cp_time_var6<-run_plm(predictors=var6, effect = "time")
+ERS_twoways_var6<-run_plm(predictors=var6,data=data_by_ERS)
+ERS_individual_var6<-run_plm(predictors=var6, effect = "individual",data=data_by_ERS)
+ERS_time_var6<-run_plm(predictors=var6, effect = "time",data=data_by_ERS)
 
 #C) 6 variables (no CDL) but only 2007, 2012, and 2017 to match 3 years with CDL
-cp_twoways_var6_3yrs<-run_plm(predictors=var6, data=fulldata_3yrs)
-cp_individual_var6_3yrs<-run_plm(predictors=var6, effect = "individual", data=fulldata_3yrs)
-cp_time_var6_3yrs<-run_plm(predictors=var6, effect = "time", data=fulldata_3yrs)
+ERS_twoways_var6_3yrs<-run_plm(predictors=var6, data=data_by_ERS_3yrs)
+ERS_individual_var6_3yrs<-run_plm(predictors=var6, effect = "individual", data=data_by_ERS_3yrs)
+ERS_time_var6_3yrs<-run_plm(predictors=var6, effect = "time", data=data_by_ERS_3yrs)
 
 #D) All crops covariates, repeating A-C with these inclusions
 #var7crops
-cp_twoways_var7crops<-run_plm(predictors=var7crops)
-cp_individual_var7crops<-run_plm(predictors=var7crops, effect = "individual")
-cp_time_var7crops<-run_plm(predictors=var7crops, effect = "time")
+ERS_twoways_var7crops<-run_plm(predictors=var7crops,data=data_by_ERS)
+ERS_individual_var7crops<-run_plm(predictors=var7crops, effect = "individual",data=data_by_ERS)
+ERS_time_var7crops<-run_plm(predictors=var7crops, effect = "time",data=data_by_ERS)
 
 #var6crops
-cp_twoways_var6crops<-run_plm(predictors=var6crops)
-cp_individual_var6crops<-run_plm(predictors=var6crops, effect = "individual")
-cp_time_var6crops<-run_plm(predictors=var6crops, effect = "time")
+ERS_twoways_var6crops<-run_plm(predictors=var6crops,data=data_by_ERS)
+ERS_individual_var6crops<-run_plm(predictors=var6crops, effect = "individual",data=data_by_ERS)
+ERS_time_var6crops<-run_plm(predictors=var6crops, effect = "time",data=data_by_ERS)
 
-#var6crops with fulldata_3yrs
-cp_twoways_var6crops_3yrs<-run_plm(predictors=var6crops, data=fulldata_3yrs)
-cp_individual_var6crops_3yrs<-run_plm(predictors=var6crops, effect = "individual", data=fulldata_3yrs)
-cp_time_var6crops_3yrs<-run_plm(predictors=var6crops, effect = "time", data=fulldata_3yrs)
+#var6crops with data_by_ERS_3yrs
+ERS_twoways_var6crops_3yrs<-run_plm(predictors=var6crops, data=data_by_ERS_3yrs)
+ERS_individual_var6crops_3yrs<-run_plm(predictors=var6crops, effect = "individual", data=data_by_ERS_3yrs)
+ERS_time_var6crops_3yrs<-run_plm(predictors=var6crops, effect = "time", data=data_by_ERS_3yrs)
 
-models<-list(cp_twoways_var7,cp_individual_var7,cp_time_var7)
-save(models, file = paste0("Data/models/models"))
-
+#Create separate list of models for each ERS?
+#And save?
+#And then create dataframe for each ERS within the for loop
+#And then can append the dataframes as we go or later
+#Or save and do later cause can call it ERSmodels_1 with the number so can parse and run by # later
 
 
 ```
 
 
 
-### 2) By ERS Region
+
+
+
+
 
 
 ```{r}
