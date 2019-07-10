@@ -1,7 +1,21 @@
 #Perform all regressions for model="within" (for coefficients) and model="pooling" (for running vif) using run_plm function/script
 
+#Load fulldata in case not loaded
+load("Data/df/fulldata.rda")
+
 #Source the run_plm function, created in the run_plm script in order to perform the panel linear model regressions
 source("R/run_plm.R")
+
+#Create Variable Combinations
+var7<-c("pland_crops","cropintensity", "msidi","mna_crops","largefarm_planted","te_shared_c_nc","SDI")
+var6<-c("pland_crops","cropintensity", "msidi","mna_crops","largefarm_planted","te_shared_c_nc")
+var7crops<-c("pland_crops","cropintensity", "msidi","mna_crops","largefarm_planted","te_shared_c_nc","SDI",
+             "soysmallgrain_planted", "corn_planted", "fruitveg_planted")
+var6crops<-c("pland_crops","cropintensity", "msidi","mna_crops","largefarm_planted","te_shared_c_nc",
+             "soysmallgrain_planted", "corn_planted", "fruitveg_planted")
+
+#Data subset that has 1997 and 2002 removed, since there are so many NAs for those years across the datasets
+fulldata_3yrs<-fulldata[fulldata$Year!=1997&fulldata$Year!=2002,]
 
 perform_cpmodels<-function(modeltype){
 
@@ -48,28 +62,26 @@ perform_cpmodels<-function(modeltype){
                        "cp_twoways_var6","cp_individual_var6","cp_time_var6",
                        "cp_twoways_var6_3yrs","cp_individual_var6_3yrs","cp_time_var6_3yrs")
     
-    cpmodels_crops<-list(cp_twoways_var7,cp_individual_var7,cp_time_var7,
-                   cp_twoways_var6,cp_individual_var6,cp_time_var6,
-                   cp_twoways_var6_3yrs,cp_individual_var6_3yrs,cp_time_var6_3yrs,
-                   cp_twoways_var7crops,cp_individual_var7crops,cp_time_var7crops,
+    cpmodels_crops<-list(cp_twoways_var7crops,cp_individual_var7crops,cp_time_var7crops,
                    cp_twoways_var6crops,cp_individual_var6crops,cp_time_var6crops,
                    cp_twoways_var6crops_3yrs,cp_individual_var6crops_3yrs,cp_time_var6crops_3yrs)
     
-    names(cpmodels_crops)<-c("cp_twoways_var7","cp_individual_var7","cp_time_var7",
-                       "cp_twoways_var6","cp_individual_var6","cp_time_var6",
-                       "cp_twoways_var6_3yrs","cp_individual_var6_3yrs","cp_time_var6_3yrs",
-                       "cp_twoways_var7crops","cp_individual_var7crops","cp_time_var7crops",
+    names(cpmodels_crops)<-c("cp_twoways_var7crops","cp_individual_var7crops","cp_time_var7crops",
                        "cp_twoways_var6crops","cp_individual_var6crops","cp_time_var6crops",
                        "cp_twoways_var6crops_3yrs","cp_individual_var6crops_3yrs","cp_time_var6crops_3yrs")
     
     #Assign cpmodels to within or pooled name
     assign(paste0("cpmodels_", modeltype), cpmodels)
+    #Assign cpmodels_crops to within or pooled name
+    assign(paste0("cpmodels_crops_", modeltype), cpmodels_crops)
     
     #Save the correct cpmodels file
     if(modeltype=="within"){
       save(cpmodels_within, file = paste0("Data/models/cpmodels_within.Rda"))
+      save(cpmodels_crops_within, file = paste0("Data/models/cpmodels_crops_within.Rda"))
     }else if (modeltype=="pooling"){
       save(cpmodels_pooling, file = paste0("Data/models/cpmodels_pooling.Rda"))
+      save(cpmodels_crops_pooling, file = paste0("Data/models/cpmodels_crops_pooling.Rda"))
     }else
       print("Failed to Save")
     

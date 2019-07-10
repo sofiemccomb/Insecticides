@@ -128,7 +128,9 @@ The cpmodels script performs the plm models for all counties pooled together usi
 #Script runs the counties pooled (cp) regression models and creates .Rda file of list of plm models (edit models in R script)
 source("R/cpmodels.R") #Takes a few minutes to run both within and pooling models
 load("Data/models/cpmodels_within.Rda")
+load("Data/models/cpmodels_crops_within.Rda")
 load("Data/models/cpmodels_pooling.Rda")
+load("Data/models/cpmodels_crops_pooling.Rda")
 
 ```
 
