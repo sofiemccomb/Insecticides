@@ -8,31 +8,28 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-This R Markdown document will ...
+This R Markdown document will perform the panel linear model regressions for determining the relationship of agricultural and landscape variables on insectide use. The regressions are performed in separate R scripts that are sourced below and than analyzed. 
+Current primary variables to be examined include:
+1. pland_crops: fraction of crop areas per county
+2. cropintensity: harvested acres per area of county cropland
+3. SDI: crop diversity
+4. msidi: simpsons landscape diversity 
+5. te_shared_c_nc: shared edge length between natural and cropland divided by the total edge length of crop
+6. mna_crops: patch size of cropland
+7. largefarm_planted: acreage of harvested acres for farms >500acres
 
-The regression combinations I need:
+Secondary variables include:
+1. crop covariates: soysmallgrain_planted + corn_planted + fruitveg_planted
 
-Write out all the options 
-Fraction Crop (Area)=pland_crops
-Crop Intensity (harv ac/area crop (NLCD*CoA))=cropintensity
-Crop diversity=SDI
-Landscape diversity=msidi
-Edge Natural habitat-crop=te_shared_c_nc
-Patch size of cropland= mna_crops
-Large Farms (Acreage harv acres to farms >500acres)=largefarm_planted
+Analyses are run for all counties pooled together (cp) and by Economic Research Service (ERS) Farm Resource Regions. County and Year fixed effects (and a combination of them) will be run for each regression.
+Furthermore, two years (1997 and 2002) and missing data for SDI, so versions will be run excluding these purposefully.
+Several combinations of variables and regressions will also be performed. 
 
+## Data Preparation
 
-+crop covariates (fruits, veg, etc)=soysmallgrain_planted + corn_planted + fruitveg_planted
-+county, year FES
-Run for all counties pooled and Run for ERS regions
-Possible additional: income_planted  + irrigate_planted
+This section will load the necessary packages and data, and run analyses on the data to examine the natural variation.
 
-Model ignoring CDL as well to have all the years
-
-The other regression column desired is shared edge length between natural and cropland (which is tel_naturalcrops_nc) divided by the total edge length of crop (tec_crops_nc), which is already a created column called te_shared_c_nc
-
-
-## Data Formatting
+### Load Packages
 
 ```{r packages, message=F, warning=F}
 
@@ -52,45 +49,32 @@ options(scipen=999) #no scientific notation (all)
 
 ```
 
-### Panel Fixed effects lm
 
-Helpful websites: https://rstudio-pubs-static.s3.amazonaws.com/372492_3e05f38dd3f248e89cdedd317d603b9a.html 
-https://cran.r-project.org/web/packages/plm/vignettes/plmPackage.html
+### Load Data
 
-#Good article on missing NA impacting lm analysis: https://stats.idre.ucla.edu/r/faq/how-does-r-handle-missing-values/
-#Default is na.omit-works to exclude the NA value rows from analysis
-
-
-Versions of regression:
-1. All counties pooled (twoways, individual, time)
-  a. All 7 variables (use var7)
-  b. 6 variables (no CDL) (use var6)
-  c. 6 variables (no CDL)-but just 3 years that have CDL (not 1997/2002) (use var6 on subset data)
-  d. With all crop covariates
-  e. Future choices: other variable combinations or just one variable each
-2. ERS Regions
-  *Same as above but substetted by regions
-
-## Load Data
+Loading the fulldata dataset created in the DataProcessing.Rmd, which was developed to perform the regression analyses.
 
 ```{r data, message=F, warning=F}
 
-load("Data/df/fulldata.rda")
+load("Data/DataProcessing/df/fulldata.rda")
 
 ```
 
 ### Examine Data with XTSUM
 
+XTSUM (based on the stata function) examines the overall, within, and between variation found in a dataset.
+
 ```{r xtsum, message=F, warning=F}
 
 #Source xtsumR script to examine variation within variables (fips, year) from fulldata and load saved analysis dataframe
-source("R/xtsumR.R")
-load("Data/models/xtsum_df.Rda")
+source("R/Analysis/xtsumR.R")
+#Script both creates R version of xtsum function and perform analyses, put into a dataframe and loaded here.
+load("Data/Analysis/xtsum/xtsum_df.Rda")
 
 ```
 
 
-## Run Regressions
+## Run Panel Linear Model Regressions
 Perform the regressions within separate R scripts, and have lists of the performed models loadable as rda file in order to perform analyses on the model results and create dataframes of results across models. All regressions are run using the "R/run_plm.R" script, which contains the run_plm function for performing panel linear model regressions. The script is sourced directly in the analysis scripts that are used below. The model inputs are created in each of the two scripts.
 
 The general format is:  
@@ -100,25 +84,37 @@ run_plm<-function(predictors, data=fulldata,index = c("FIPS","Year"), model = "w
   plm_model<-plm::plm(Formula, data = data,index = index,model = model,effect = effect)
   return(plm_model)}
 
+
+Current versions of regressions to be performed for both pooled counties and by ERS regions include:
+1. Using all 7 primary variables
+2. Using 6 primary variables, excluding SDI
+3. Using 6 primary variables, excluding SDI, but just for 2002-2017
+4. All secondary crop covariates included
+
+Twoways, individual, and time fixed effects models will be run for each regression, both as a within model and pooling model.
+
+Default of regression is na.omit, so okay to currently rows with NA values as they will be excluded from the analysis by the regression functions. 
+
+
 ### 1) Counties Pooled (cp)
 
 The cpmodels script performs the plm models for all counties pooled together using the run_plm functoin/script, and the list of model results are loaded and analyzed below.
 
-#Create list of models and save that as as RDA
+#### Run panel regressions and save outputs as list of models in RDA format
 
 ```{r cpmodels, message=F, warning=F}
 
 #Script runs the counties pooled (cp) regression models and creates .Rda file of list of plm models (edit models in R script)
-source("R/cpmodels.R") #Takes a few minutes to run both within and pooling models
-  #Separated out crop covariate models so that rda files were not too large for github
-load("Data/models/CP/cpmodels_within.Rda")
-load("Data/models/CP/cpmodels_crops_within.Rda")
-load("Data/models/CP/cpmodels_pooling.Rda")
-load("Data/models/CP/cpmodels_crops_pooling.Rda")
+source("R/Analysis/cpmodels.R") #Takes a few minutes to run both within and pooling models
+  #Separated into multiple lists of models so that rda files were not too large for github (<100 MB)
+load("Data/Analysis/models/CP/cpmodels_within.Rda") #Within model for steps 1-3 ( 7 and 6 primary varialbes)
+load("Data/Analysis/models/CP/cpmodels_crops_within.Rda") #Pooling model for steps 1-3 ( 7 and 6 primary varialbes)
+load("Data/Analysis/models/CP/cpmodels_pooling.Rda") #Within model for step 4 (rerun steps 1-3 with crop covariates)
+load("Data/Analysis/models/CP/cpmodels_crops_pooling.Rda") #Pooling model for step 4 (rerun steps 1-3 with crop covariates)
 
 ```
 
-#Create dataframe of important model information from list of cpmodels
+#### Create dataframe of important model information from each model
 
 ```{r cp_df, message=F, warning=F}
 
@@ -126,27 +122,28 @@ load("Data/models/CP/cpmodels_crops_pooling.Rda")
 cpmodelswithin<-list(cpmodels_within, cpmodels_crops_within)
 cpmodelspooling<-list(cpmodels_pooling, cpmodels_crops_pooling)
 
-#Create dataframe of coefficient from each model (using within)
+#Create dataframe of coefficients from each model (using within)
 cp_coef_df<- lapply(cpmodelswithin,function(l){rownames_to_column(as.data.frame(l$coefficient), "variable")})%>% 
   purrr::reduce(full_join, by = "variable") %>% 
   setNames(c("variable", names(cpmodelswithin)))
 
-#Create dataframe of coefficient from each model (using within)
+#Create dataframe of p-values from each model (using within)
 cp_pval_df<- lapply(cpmodelswithin, function(l){rownames_to_column(as.data.frame(summary(l)$coefficients[,4]),"variable")}) %>%
   purrr::reduce(full_join, by = "variable") %>% 
   setNames(c("variable", names(cpmodelswithin))) %>% 
    mutate_if(is.numeric, round, digits=5)
 
 #Run variance inflation factor (vif) to look at multicollinearity between variables and look at correlation matrices
-  #Can only run on model=pooling for plm (however vif about indepdenent variables so theoretically less need to control for effects) (https://stackoverflow.com/questions/20281055/test-for-multicollinearity-in-panel-data-r/20291097#20291097)
-  #VIF of 1=no correlation among predictors, >4 investigate, >10 serious correction
+  #Can only run on model=pooling for plm 
+    #However, since vif is about examining indepdenent variables, theoretically there is less need to control for effects 
+    #VIF of 1=no correlation among predictors, >4 investigate, >10 serious correction
 
     #VIF on pooled data
     cp_vif<-lapply(cpmodelspooling, function(p){car::vif(p)})
-    #Correlation matric on within data
+    #Correlation matrix on within data
     cp_corr<-lapply(cpmodelswithin, function(v){cov2cor(v$vcov)})
     
-#Write out csvs, etc, of these results- under anlaysis folder?
+#Write csv for each of the created dataframes and lists
 
 ```
 
@@ -180,7 +177,7 @@ The ERS zones are
 ```{r ERS, message=F, warning=F}
 
 #Script runs the ERS (cp) regression models subset by ERS and creates .Rda file of list of plm models (edit models in R script)
-source("R/ERSmodels.R") #Takes a few minutes to run both within and pooling models for all ERS separately
+source("R/Analysis/ERSmodels.R") #Takes a few minutes to run both within and pooling models for all ERS separately
   #Separated out crop covariate models so that rda files were not too large for github
 
 #Will perform analyses on script products
@@ -217,32 +214,6 @@ ERS<-1:9 #9 ERS Regions (defined in Markdown)
 
 
 
-
-
-
-
-
-```{r}
-
-
-#variables <- c("harv_county", "SDI")
-variables<-c("pland_crops","cropintensity","SDI", "msidi","mna_crops","largefarm_planted","te_shared_c_nc")
-#Could make a whole bunch of versions and then apply the function to the list of variable lists, and then combine the results
-
-modelnm<-run_plm(predictors=variables)
-save(modelnm, file = paste0("Data/models/testing.rda"))
-
-#Instead of stargazer maybe just save rda of each model
-#And later go through whole folder, pull them in, and put info from them in compiled text pdf
-#And then maybe csv
-
-
-```
-
-
-#Potential possibility of extracting information from heach model and running it
-#Could list the models?
-
 An object of class c("plm", "panelmodel").
 
 A "plm" object has the following elements :
@@ -257,35 +228,4 @@ model	: the model frame as a "pdata.frame" containing the variables used for est
 ercomp	: an object of class "ercomp" providing the estimation of the components of the errors (for random effects models only),
 aliased	: named logical vector indicating any aliased coefficients which are silently dropped by plm due to linearly dependent terms (see also detect.lindep),
 call	:the call.
-
-
-```{r}
-
-myFun <-
-function(plm)
-{
-out <- c(plm$coefficients[1],
-	lm$coefficients[2],
-	length(lm$model$y),
-	summary(lm)$coefficients[2,2],
-	pf(summary(lm)$fstatistic[1], summary(lm)$fstatistic[2],
-summary(lm)$fstatistic[3], lower.tail = FALSE),
-	summary(lm)$r.squared)
-names(out) <- c("intercept","slope","n","slope.SE","p.value","r.squared")
-return(out)}
-
-
-#Edit above on the list of models
-
-#Plm object has the follwing elements
-#want to save and report the coefficients,
-
-#vcov is cool but har to include in csv table
-
-cp_var7$coefficients
-cp_var7$vcov
-
-
-
-```
 

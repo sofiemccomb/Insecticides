@@ -37,6 +37,8 @@ XTSUM <- function(data, varname, unit) {
   return(values)
 }
 
+#Load fulldata in case not loaded previously:
+load("Data/DataProcessing/df/fulldata.rda")
 
 #Perform xtsum function for each variable being considered in regression, for both individual (FIPS) and time (Year) effects
   #Have to perform each variable separately based on how xtsumR function created (global variable)
@@ -85,5 +87,5 @@ XTSUM <- function(data, varname, unit) {
               select(source, everything())
     
 #Save dataframe as rda file
-  save(xtsum_df, file = paste0("Data/models/xtsum_df.Rda"))
+  save(xtsum_df, file = paste0("Data/Analysis/xtsum/xtsum_df.Rda"))
       

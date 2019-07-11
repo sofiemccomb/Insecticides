@@ -14,7 +14,7 @@
     # file_names <- dir("Z:/Sofie/Data/NLCD/Data/NLCD_Frag_Cluster/nlcd_2001", pattern = ".csv", full.names = TRUE) #files located per year
     # nlcd <- do.call(rbind,lapply(file_names,read.csv))
     # write.csv(nlcd, "Z:/Sofie/Data/NLCD/Data/NLCD_Frag_Cluster/nlcd_2001/all.csv")
-  #The final year products have been renamed by there year and are provided in the Data/nf folder (nf stands for nlcd_fragstats)
+  #The final year products have been renamed by there year and are provided in the Data/DataProcessing/nf folder (nf stands for nlcd_fragstats)
 
 nf=function(year, state){
   

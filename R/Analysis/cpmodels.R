@@ -1,10 +1,10 @@
 #Perform all regressions for model="within" (for coefficients) and model="pooling" (for running vif) using run_plm function/script
 
 #Load fulldata in case not loaded
-load("Data/df/fulldata.rda")
+load("Data/DataProcessing/df/fulldata.rda")
 
 #Source the run_plm function, created in the run_plm script in order to perform the panel linear model regressions
-source("R/run_plm.R")
+source("R/Analysis/run_plm.R")
 
 #Create Variable Combinations
 var7<-c("pland_crops","cropintensity", "msidi","mna_crops","largefarm_planted","te_shared_c_nc","SDI")
@@ -77,11 +77,11 @@ perform_cpmodels<-function(modeltype){
     
     #Save the correct cpmodels file
     if(modeltype=="within"){
-      save(cpmodels_within, file = paste0("Data/models/CP/cpmodels_within.Rda"))
-      save(cpmodels_crops_within, file = paste0("Data/models/CP/cpmodels_crops_within.Rda"))
+      save(cpmodels_within, file = paste0("Data/Analysis/models/CP/cpmodels_within.Rda"))
+      save(cpmodels_crops_within, file = paste0("Data/Analysis/models/CP/cpmodels_crops_within.Rda"))
     }else if (modeltype=="pooling"){
-      save(cpmodels_pooling, file = paste0("Data/models/CP/cpmodels_pooling.Rda"))
-      save(cpmodels_crops_pooling, file = paste0("Data/models/CP/cpmodels_crops_pooling.Rda"))
+      save(cpmodels_pooling, file = paste0("Data/Analysis/models/CP/cpmodels_pooling.Rda"))
+      save(cpmodels_crops_pooling, file = paste0("Data/Analysis/models/CP/cpmodels_crops_pooling.Rda"))
     }else
       print("Failed to Save")
     

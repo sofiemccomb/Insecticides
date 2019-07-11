@@ -2,10 +2,10 @@
 
 #Load and subset all necessary data and inputs
     #Load fulldata in case not loaded
-    load("Data/df/fulldata.rda")
+    load("Data/DataProcessing/df/fulldata.rda")
     
     #Source the run_plm function, created in the run_plm script in order to perform the panel linear model regressions
-    source("R/run_plm.R")
+    source("R/Analysis/run_plm.R")
     
     #Create Variable Combinations
     var7<-c("pland_crops","cropintensity", "msidi","mna_crops","largefarm_planted","te_shared_c_nc","SDI")
@@ -86,11 +86,11 @@
       
       #Save the correct ERSmodels file
       if(modeltype=="within"){
-        save(ERSmodels_within, file = paste0("Data/models/ERS/", e,"/ERSmodels_within.Rda"))
-        save(ERSmodels_crops_within, file = paste0("Data/models/ERS/", e,"/ERSmodels_crops_within.Rda"))
+        save(ERSmodels_within, file = paste0("Data/Analysis/models/ERS/", e,"/ERSmodels_within.Rda"))
+        save(ERSmodels_crops_within, file = paste0("Data/Analysis/models/ERS/", e,"/ERSmodels_crops_within.Rda"))
       }else if (modeltype=="pooling"){
-        save(ERSmodels_pooling, file = paste0("Data/models/ERS/", e,"/ERSmodels_pooling.Rda"))
-        save(ERSmodels_crops_pooling, file = paste0("Data/models/ERS/", e,"/ERSmodels_crops_pooling.Rda"))
+        save(ERSmodels_pooling, file = paste0("Data/Analysis/models/ERS/", e,"/ERSmodels_pooling.Rda"))
+        save(ERSmodels_crops_pooling, file = paste0("Data/Analysis/models/ERS/", e,"/ERSmodels_crops_pooling.Rda"))
       }else
         print("Failed to Save")
       

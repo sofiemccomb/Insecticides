@@ -12,10 +12,10 @@
 
 #Load in all CoA files
     #List all file names
-    coa_names<-tools::file_path_sans_ext(list.files(path="Data/CoA", pattern=".csv", full.names=FALSE))
+    coa_names<-tools::file_path_sans_ext(list.files(path="Data/DataProcessing/CoA", pattern=".csv", full.names=FALSE))
     #Load in all csvs and give the datasets the name of the original csv file
     for (i in coa_names){
-      assign(i, readr::read_csv(paste0("Data/CoA/", i, ".csv", sep="")))
+      assign(i, readr::read_csv(paste0("Data/DataProcessing/CoA/", i, ".csv", sep="")))
     }
 
 #Combine all CoA files in listed dataframe format
@@ -187,4 +187,4 @@
     final_coa[sapply(final_coa, is.infinite)]<-0
 
 #Write final Census of Ag Dataframe to be used in combination with other dataframes
-    write_csv(final_coa, "Data/df/coa.csv")
+    write_csv(final_coa, "Data/DataProcessing/df/coa.csv")

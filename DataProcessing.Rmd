@@ -51,8 +51,8 @@ More detail for each dataset will be given below as the data for each dataset is
 ```{r COA, message=F, warning=F}
 
 #Prepare Census of Agriculture data (COA) needed for the regression analyses
-source ("R/COA.R")
-#Output saved as coa.csv saved under Data/df
+source ("R/DataProcessing/COA.R")
+#Output saved as Data/DataProcessing/df/coa.csv
 
 ```
 
@@ -62,8 +62,8 @@ source ("R/COA.R")
 ```{r CDL, message=F, warning=F}
 
 #Prepare Cropland Data Layer data (CDL) needed for the regression analyses
-source ("R/CDL.R")
-#Output saved as cdl.csv saved under Data/df
+source ("R/DataProcessing/CDL.R")
+#Output saved as Data/DataProcessing/df/cdl.csv
 
 ```
 
@@ -75,8 +75,8 @@ source ("R/CDL.R")
 ```{r NLCD, message=F, warning=F}
 
 #Prepare National Land Cover Database (NLCD) analyses needed for the regression analyses, which have already been run through fragstats using the R/NF.R script 
-source ("R/NLCD.R")
-#Output saved as nlcd.csv saved under Data/df
+source ("R/DataProcessing/NLCD.R")
+#Output saved as Data/DataProcessing/df/nlcd.csv
 
 ```
 
@@ -87,7 +87,7 @@ source ("R/NLCD.R")
 ```{r ERS, message=F, warning=F}
 
 #Read in ERS file, to be combined with other data as is
-ERS<-readxl::read_xls("Data/ERS/ERSRegions_To_Counties.xls")
+ERS<-readxl::read_xls("Data/DataProcessing/ERS/ERSRegions_To_Counties.xls")
 ERS<-ERS[,1:3]
 colnames(ERS)<-c("FIPS", "ERSCode", "ERSName")
 
@@ -104,9 +104,9 @@ Combine the COA, CDL, NLCD, and ERS data to create final dataframe to be saved a
 ```{r combine, message=F, warning=F}
 
 #Read in the datasets
-coa<-readr::read_csv("Data/df/coa.csv")
-cdl<-readr::read_csv("Data/df/cdl.csv")
-nlcd<-readr::read_csv("Data/df/nlcd.csv")
+coa<-readr::read_csv("Data/DataProcessing/df/coa.csv")
+cdl<-readr::read_csv("Data/DataProcessing/df/cdl.csv")
+nlcd<-readr::read_csv("Data/DataProcessing/df/nlcd.csv")
 
 #List and merge three datasets by the unique combination of FIPS and Year Values
 fulldata<-list(coa, cdl, nlcd) %>% 
@@ -142,7 +142,7 @@ fulldata<-fulldata %>%
   fulldata$cropintensity[sapply(fulldata$cropintensity, is.infinite)]<-NA
     
 #Write fulldata to df folder be used in regression analyses
-    write_csv(fulldata, "Data/df/fulldata.csv")
-    save(fulldata, file = "Data/df/fulldata.rda")
+    write_csv(fulldata, "Data/DataProcessing/df/fulldata.csv")
+    save(fulldata, file = "Data/DataProcessing/df/fulldata.rda")
 
 ```

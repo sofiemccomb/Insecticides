@@ -31,12 +31,12 @@
 
 #Read in data
     #Read in crosswalk between category type name and category number name
-    crosswalk<-readr::read_csv("Data/CDL/CDL_crosswalk.csv")
+    crosswalk<-readr::read_csv("Data/DataProcessing/CDL/CDL_crosswalk.csv")
 
     #Read in csvs for the years 2008, 2012, 2016 (1997 and 2002 not available and 2007 incomplete), in acres
-    CDL_2008_acres<-readr::read_csv("Data/CDL/County_Pixel_Count/CDL_Cnty_Acres_2008.csv")
-    CDL_2012_acres<-readr::read_csv("Data/CDL/County_Pixel_Count/CDL_Cnty_Acres_2012.csv")
-    CDL_2016_acres<-readr::read_csv("Data/CDL/County_Pixel_Count/CDL_Cnty_Acres_2016.csv")
+    CDL_2008_acres<-readr::read_csv("Data/DataProcessing/CDL/County_Pixel_Count/CDL_Cnty_Acres_2008.csv")
+    CDL_2012_acres<-readr::read_csv("Data/DataProcessing/CDL/County_Pixel_Count/CDL_Cnty_Acres_2012.csv")
+    CDL_2016_acres<-readr::read_csv("Data/DataProcessing/CDL/County_Pixel_Count/CDL_Cnty_Acres_2016.csv")
 
 #Cleanup CDL datasets by year
     #Remove the subcategories already accounted for in the all categories (some in multiple categories so only removed in the first category listed)
@@ -144,5 +144,5 @@
       dplyr::arrange(FIPS)
 
 #Write final Cropland Data Layer Dataframe to be used in combination with other dataframes
-    write_csv(cdl, "Data/df/cdl.csv")
+    write_csv(cdl, "Data/DataProcessing/df/cdl.csv")
       

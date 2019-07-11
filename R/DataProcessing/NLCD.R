@@ -1,12 +1,12 @@
 #This R Script gathers and formats the NLCD analysis data for regression analyses.
-  #Read through R/NF.R script for more information on where the data was sourced and how it was processed.
+  #Read through R/DataProcessing/NF.R script for more information on where the data was sourced and how it was processed.
 
 #Load Packages
   #Ensure necessary packages are installed and loaded
   library(tidyverse) #Datatable manipulation
 
 #Read in the NLCD files and rbind
-  file_names <- dir("Data/NF", pattern = ".csv", full.names = TRUE) #files located per year
+  file_names <- dir("Data/DataProcessing/NF", pattern = ".csv", full.names = TRUE) #files located per year
   nlcd_df <- do.call(rbind,lapply(file_names,readr::read_csv))
 
 #Perform additional calculations
@@ -36,5 +36,5 @@
   nlcd$Year[nlcd$Year==2016] <- 2017
 
 #Write final nlcd data to be used in combination with other dataframes
-  write_csv(nlcd, "Data/df/nlcd.csv")
+  write_csv(nlcd, "Data/DataProcessing/df/nlcd.csv")
   
