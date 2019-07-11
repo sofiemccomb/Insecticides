@@ -77,11 +77,11 @@ perform_cpmodels<-function(modeltype){
     
     #Save the correct cpmodels file
     if(modeltype=="within"){
-      save(cpmodels_within, file = paste0("Data/models/cpmodels_within.Rda"))
-      save(cpmodels_crops_within, file = paste0("Data/models/cpmodels_crops_within.Rda"))
+      save(cpmodels_within, file = paste0("Data/models/CP/cpmodels_within.Rda"))
+      save(cpmodels_crops_within, file = paste0("Data/models/CP/cpmodels_crops_within.Rda"))
     }else if (modeltype=="pooling"){
-      save(cpmodels_pooling, file = paste0("Data/models/cpmodels_pooling.Rda"))
-      save(cpmodels_crops_pooling, file = paste0("Data/models/cpmodels_crops_pooling.Rda"))
+      save(cpmodels_pooling, file = paste0("Data/models/CP/cpmodels_pooling.Rda"))
+      save(cpmodels_crops_pooling, file = paste0("Data/models/CP/cpmodels_crops_pooling.Rda"))
     }else
       print("Failed to Save")
     

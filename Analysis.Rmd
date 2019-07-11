@@ -89,26 +89,9 @@ load("Data/models/xtsum_df.Rda")
 
 ```
 
-### Establish Model Inputs (For CP and ERS models)
-
-```{r model inputs, message=F, warning=F}
-
-#Create Variable Combinations
-var7<-c("pland_crops","cropintensity", "msidi","mna_crops","largefarm_planted","te_shared_c_nc","SDI")
-var6<-c("pland_crops","cropintensity", "msidi","mna_crops","largefarm_planted","te_shared_c_nc")
-var7crops<-c("pland_crops","cropintensity", "msidi","mna_crops","largefarm_planted","te_shared_c_nc","SDI",
-             "soysmallgrain_planted", "corn_planted", "fruitveg_planted")
-var6crops<-c("pland_crops","cropintensity", "msidi","mna_crops","largefarm_planted","te_shared_c_nc",
-             "soysmallgrain_planted", "corn_planted", "fruitveg_planted")
-
-#Data subset that has 1997 and 2002 removed, since there are so many NAs for those years across the datasets
-fulldata_3yrs<-fulldata[fulldata$Year!=1997&fulldata$Year!=2002,]
-
-```
-
 
 ## Run Regressions
-Perform the regressions within separate R scripts, and have lists of the performed models loadable as rda file in order to perform analyses on the model results and create dataframes of results across models. All regressions are run using the "R/run_plm.R" script, which contains the run_plm function for performing panel linear model regressions. The script is sourced directly in the analysis scripts that are used below.
+Perform the regressions within separate R scripts, and have lists of the performed models loadable as rda file in order to perform analyses on the model results and create dataframes of results across models. All regressions are run using the "R/run_plm.R" script, which contains the run_plm function for performing panel linear model regressions. The script is sourced directly in the analysis scripts that are used below. The model inputs are created in each of the two scripts.
 
 The general format is:  
 
@@ -127,10 +110,11 @@ The cpmodels script performs the plm models for all counties pooled together usi
 
 #Script runs the counties pooled (cp) regression models and creates .Rda file of list of plm models (edit models in R script)
 source("R/cpmodels.R") #Takes a few minutes to run both within and pooling models
-load("Data/models/cpmodels_within.Rda")
-load("Data/models/cpmodels_crops_within.Rda")
-load("Data/models/cpmodels_pooling.Rda")
-load("Data/models/cpmodels_crops_pooling.Rda")
+  #Separated out crop covariate models so that rda files were not too large for github
+load("Data/models/CP/cpmodels_within.Rda")
+load("Data/models/CP/cpmodels_crops_within.Rda")
+load("Data/models/CP/cpmodels_pooling.Rda")
+load("Data/models/CP/cpmodels_crops_pooling.Rda")
 
 ```
 
@@ -138,15 +122,19 @@ load("Data/models/cpmodels_crops_pooling.Rda")
 
 ```{r cp_df, message=F, warning=F}
 
-#Create dataframe of coefficient from each model (using within)
-cp_coef_df<- lapply(cpmodels_within,function(l){rownames_to_column(as.data.frame(l$coefficient), "variable")})%>% 
-  purrr::reduce(full_join, by = "variable") %>% 
-  setNames(c("variable", names(cpmodels_within)))
+#Combine within and pooling lists of models together to perform analyses
+cpmodelswithin<-list(cpmodels_within, cpmodels_crops_within)
+cpmodelspooling<-list(cpmodels_pooling, cpmodels_crops_pooling)
 
 #Create dataframe of coefficient from each model (using within)
-cp_pval_df<- lapply(cpmodels_within, function(l){rownames_to_column(as.data.frame(summary(l)$coefficients[,4]),"variable")}) %>%
+cp_coef_df<- lapply(cpmodelswithin,function(l){rownames_to_column(as.data.frame(l$coefficient), "variable")})%>% 
   purrr::reduce(full_join, by = "variable") %>% 
-  setNames(c("variable", names(cpmodels_within))) %>% 
+  setNames(c("variable", names(cpmodelswithin)))
+
+#Create dataframe of coefficient from each model (using within)
+cp_pval_df<- lapply(cpmodelswithin, function(l){rownames_to_column(as.data.frame(summary(l)$coefficients[,4]),"variable")}) %>%
+  purrr::reduce(full_join, by = "variable") %>% 
+  setNames(c("variable", names(cpmodelswithin))) %>% 
    mutate_if(is.numeric, round, digits=5)
 
 #Run variance inflation factor (vif) to look at multicollinearity between variables and look at correlation matrices
@@ -154,9 +142,9 @@ cp_pval_df<- lapply(cpmodels_within, function(l){rownames_to_column(as.data.fram
   #VIF of 1=no correlation among predictors, >4 investigate, >10 serious correction
 
     #VIF on pooled data
-    cp_vif<-lapply(cpmodels_pooling, function(p){car::vif(p)})
+    cp_vif<-lapply(cpmodelspooling, function(p){car::vif(p)})
     #Correlation matric on within data
-    cp_corr<-lapply(cpmodels_within, function(v){cov2cor(v$vcov)})
+    cp_corr<-lapply(cpmodelswithin, function(v){cov2cor(v$vcov)})
 
 ```
 
@@ -186,42 +174,33 @@ The ERS zones are
 
 ```{r ERS, message=F, warning=F}
 
-#Eventually by i and iterate through
-data_by_ERS<-fulldata[fulldata$ERSCode==1,]
-data_by_ERS_3yrs<-fulldata_3yrs[fulldata_3yrs$ERSCode==1,]
+#Script runs the ERS (cp) regression models subset by ERS and creates .Rda file of list of plm models (edit models in R script)
+source("R/ERSmodels.R") #Takes a few minutes to run both within and pooling models for all ERS separately
+  #Separated out crop covariate models so that rda files were not too large for github
 
-#For each option perform: twoways, individual, and time fixed effects
+#Will perform analyses on script products
 
-#A) All 7 variables
-ERS_twoways_var7<-run_plm(predictors=var7, data=data_by_ERS)
-ERS_individual_var7<-run_plm(predictors=var7, effect = "individual",data=data_by_ERS)
-ERS_time_var7<-run_plm(predictors=var7, effect = "time",data=data_by_ERS)
+#For loop through ERS and perform analyses for each ERS before combining
+ERS<-1:9 #9 ERS Regions (defined in Markdown)
+  for (e in ERS){
+    #Load all 4 models within each ERS subfolder
+    "Data/models/ERS/", e,"/ERSmodels_crops_pooling.Rda"))
+    fn<-as.list(dir(pattern="stock_*"))
+    lapply(file_names,load,.GlobalEnv)
+  }
+load("Data/models/CP/cpmodels_within.Rda")
+load("Data/models/CP/cpmodels_crops_within.Rda")
+load("Data/models/CP/cpmodels_pooling.Rda")
+load("Data/models/CP/cpmodels_crops_pooling.Rda")
 
-#B) 6 variables (no CDL)
-ERS_twoways_var6<-run_plm(predictors=var6,data=data_by_ERS)
-ERS_individual_var6<-run_plm(predictors=var6, effect = "individual",data=data_by_ERS)
-ERS_time_var6<-run_plm(predictors=var6, effect = "time",data=data_by_ERS)
+#In here
+  #Will load all rda files in each ERS subfolder from Data/models
+#Perform ERS function for ERS number, creating and loading four rda model lists per ERS
+#Create df and run vif, etc, by each ERS number and save files by, creating column writing in ERS number
 
-#C) 6 variables (no CDL) but only 2007, 2012, and 2017 to match 3 years with CDL
-ERS_twoways_var6_3yrs<-run_plm(predictors=var6, data=data_by_ERS_3yrs)
-ERS_individual_var6_3yrs<-run_plm(predictors=var6, effect = "individual", data=data_by_ERS_3yrs)
-ERS_time_var6_3yrs<-run_plm(predictors=var6, effect = "time", data=data_by_ERS_3yrs)
+#Outside of for loop reading in the dataframes and combine all the dataframes (especially coefficients and pval)
+  #Order by the ERS value
 
-#D) All crops covariates, repeating A-C with these inclusions
-#var7crops
-ERS_twoways_var7crops<-run_plm(predictors=var7crops,data=data_by_ERS)
-ERS_individual_var7crops<-run_plm(predictors=var7crops, effect = "individual",data=data_by_ERS)
-ERS_time_var7crops<-run_plm(predictors=var7crops, effect = "time",data=data_by_ERS)
-
-#var6crops
-ERS_twoways_var6crops<-run_plm(predictors=var6crops,data=data_by_ERS)
-ERS_individual_var6crops<-run_plm(predictors=var6crops, effect = "individual",data=data_by_ERS)
-ERS_time_var6crops<-run_plm(predictors=var6crops, effect = "time",data=data_by_ERS)
-
-#var6crops with data_by_ERS_3yrs
-ERS_twoways_var6crops_3yrs<-run_plm(predictors=var6crops, data=data_by_ERS_3yrs)
-ERS_individual_var6crops_3yrs<-run_plm(predictors=var6crops, effect = "individual", data=data_by_ERS_3yrs)
-ERS_time_var6crops_3yrs<-run_plm(predictors=var6crops, effect = "time", data=data_by_ERS_3yrs)
 
 #Create separate list of models for each ERS?
 #And save?
