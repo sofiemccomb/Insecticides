@@ -145,6 +145,8 @@ cp_pval_df<- lapply(cpmodelswithin, function(l){rownames_to_column(as.data.frame
     cp_vif<-lapply(cpmodelspooling, function(p){car::vif(p)})
     #Correlation matric on within data
     cp_corr<-lapply(cpmodelswithin, function(v){cov2cor(v$vcov)})
+    
+#Write out csvs, etc, of these results- under anlaysis folder?
 
 ```
 
@@ -154,6 +156,9 @@ cp_pval_df<- lapply(cpmodelswithin, function(l){rownames_to_column(as.data.frame
 5. Notes and metadata on scripts and dataframes
 
 Go back and add in the :: for calls, all libraries, and way more descriptions to all scripts and markdowns
+
+Write cp results to csv extra
+Keep up on ERS for loop of analyses was working on
 
 
 ### 2) By ERS Region
@@ -184,14 +189,12 @@ source("R/ERSmodels.R") #Takes a few minutes to run both within and pooling mode
 ERS<-1:9 #9 ERS Regions (defined in Markdown)
   for (e in ERS){
     #Load all 4 models within each ERS subfolder
-    "Data/models/ERS/", e,"/ERSmodels_crops_pooling.Rda"))
-    fn<-as.list(dir(pattern="stock_*"))
-    lapply(file_names,load,.GlobalEnv)
+    #Fix this to load all files- which will rewrite these files every time based on ERS # its on
+    fn<-as.list(dir(paste0("Data/models/ERS/", e)), fullname=T)
+    lapply(fn,load,.GlobalEnv)
   }
-load("Data/models/CP/cpmodels_within.Rda")
-load("Data/models/CP/cpmodels_crops_within.Rda")
-load("Data/models/CP/cpmodels_pooling.Rda")
-load("Data/models/CP/cpmodels_crops_pooling.Rda")
+
+#then in the for loop put the cp analysis stuff from above and write dataframes of the results based on the number
 
 #In here
   #Will load all rda files in each ERS subfolder from Data/models
