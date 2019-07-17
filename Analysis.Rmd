@@ -100,7 +100,7 @@ Default of regression is na.omit, so okay to currently rows with NA values as th
 
 The cpmodels script performs the plm models for all counties pooled together using the run_plm functoin/script, and the list of model results are loaded and analyzed below.
 
-#### Run panel regressions and save outputs as list of models in RDA format
+#### Run panel regressions and save outputs as list of models in RDA format to be loaded
 
 ```{r cpmodels, message=F, warning=F}
 
@@ -119,13 +119,19 @@ load("Data/Analysis/models/CP/cpmodels_crops_pooling.Rda") #Pooling model for st
 ```{r cp_df, message=F, warning=F}
 
 #Combine within and pooling lists of models together to perform analyses
-cpmodelswithin<-list(cpmodels_within, cpmodels_crops_within)
-cpmodelspooling<-list(cpmodels_pooling, cpmodels_crops_pooling)
+cpmodelswithin<-c(cpmodels_within, cpmodels_crops_within)
+cpmodelspooling<-c(cpmodels_pooling, cpmodels_crops_pooling)
 
 #Create dataframe of coefficients from each model (using within)
 cp_coef_df<- lapply(cpmodelswithin,function(l){rownames_to_column(as.data.frame(l$coefficient), "variable")})%>% 
   purrr::reduce(full_join, by = "variable") %>% 
   setNames(c("variable", names(cpmodelswithin)))
+
+#Create dataframe of standard error from each model (using within)
+cp_se_df<- lapply(cpmodelswithin, function(l){rownames_to_column(as.data.frame(summary(l)$coefficients[,2]),"variable")}) %>%
+  purrr::reduce(full_join, by = "variable") %>% 
+  setNames(c("variable", names(cpmodelswithin))) %>% 
+   mutate_if(is.numeric, round, digits=8)
 
 #Create dataframe of p-values from each model (using within)
 cp_pval_df<- lapply(cpmodelswithin, function(l){rownames_to_column(as.data.frame(summary(l)$coefficients[,4]),"variable")}) %>%
@@ -138,29 +144,27 @@ cp_pval_df<- lapply(cpmodelswithin, function(l){rownames_to_column(as.data.frame
     #However, since vif is about examining indepdenent variables, theoretically there is less need to control for effects 
     #VIF of 1=no correlation among predictors, >4 investigate, >10 serious correction
 
-    #VIF on pooled data
-    cp_vif<-lapply(cpmodelspooling, function(p){car::vif(p)})
-    #Correlation matrix on within data
-    cp_corr<-lapply(cpmodelswithin, function(v){cov2cor(v$vcov)})
+  #VIF on pooled data
+  cp_vif<-lapply(cpmodelspooling, function(p){rownames_to_column(as.data.frame(car::vif(p)), "variable")}) %>%
+    purrr::reduce(full_join, by = "variable") %>% 
+    setNames(c("variable", names(cpmodelspooling)))
+  
+  #Correlation matrix on within data
+  cp_corr<-lapply(cpmodelswithin, function(v){cov2cor(v$vcov)})
     
-#Write csv for each of the created dataframes and lists
+#Write csv for each of the created dataframes and rda for the correlation matrix list (save under Data/Analysis/df/CP)
+  write_csv(cp_coef_df, "Data/Analysis/df/CP/cp_coef_df.csv")
+  write_csv(cp_se_df, "Data/Analysis/df/CP/cp_se_df.csv")
+  write_csv(cp_pval_df, "Data/Analysis/df/CP/cp_pval_df.csv")
+  write_csv(cp_vif, "Data/Analysis/df/CP/cp_vif.csv")
+  save(cp_corr, file="Data/Analysis/df/CP/cp_corr.Rda")
 
 ```
 
 
-#****Next Steps
-2. Do same thing below with ERS- adding in for loop to subset by ERS and apply name that way (look at COA scrips?)
-5. Notes and metadata on scripts and dataframes
-
-Go back and add in the :: for calls, all libraries, and way more descriptions to all scripts and markdowns
-
-Write cp results to csv extra
-Keep up on ERS for loop of analyses was working on
-
-
 ### 2) By ERS Region
 
-The ERS zones are 
+The ERS zones are:  
 1: Heartland
 2: Northern Crescent
 3: Northern Great Plains
@@ -171,61 +175,105 @@ The ERS zones are
 8: Basin and Range
 9: Mississippi Portal
 
-    assign("a",get("b"))
+ 
+#### Run panel regressions and save outputs as list of models in RDA format to be iterated through
 
-
-```{r ERS, message=F, warning=F}
+```{r ERSmodels, message=F, warning=F}
 
 #Script runs the ERS (cp) regression models subset by ERS and creates .Rda file of list of plm models (edit models in R script)
 source("R/Analysis/ERSmodels.R") #Takes a few minutes to run both within and pooling models for all ERS separately
   #Separated out crop covariate models so that rda files were not too large for github
 
-#Will perform analyses on script products
-
-#For loop through ERS and perform analyses for each ERS before combining
-ERS<-1:9 #9 ERS Regions (defined in Markdown)
-  for (e in ERS){
-    #Load all 4 models within each ERS subfolder
-    #Fix this to load all files- which will rewrite these files every time based on ERS # its on
-    fn<-as.list(dir(paste0("Data/models/ERS/", e)), fullname=T)
-    lapply(fn,load,.GlobalEnv)
-  }
-
-#then in the for loop put the cp analysis stuff from above and write dataframes of the results based on the number
-
-#In here
-  #Will load all rda files in each ERS subfolder from Data/models
-#Perform ERS function for ERS number, creating and loading four rda model lists per ERS
-#Create df and run vif, etc, by each ERS number and save files by, creating column writing in ERS number
-
-#Outside of for loop reading in the dataframes and combine all the dataframes (especially coefficients and pval)
-  #Order by the ERS value
-
-
-#Create separate list of models for each ERS?
-#And save?
-#And then create dataframe for each ERS within the for loop
-#And then can append the dataframes as we go or later
-#Or save and do later cause can call it ERSmodels_1 with the number so can parse and run by # later
-
+#Similar files to cpmodels created, but for each individual ERS regions (have same names so can loop through them)
 
 ```
 
+#### Create dataframe of important model information from each model, saving per ERS and combining for all ERS
 
+```{r ERS_df, message=F, warning=F}
 
+#Iterate through the ERS region models and perform analyses/create df for each ERS before combining
+ERS<-1:9 #9 ERS Regions (defined in Markdown)
+  for (e in ERS){
+    #Load all 4 models within each ERS subfolder, which will be overwritten for every ERS
+    fn<-as.list(list.files(path=paste0("Data/Analysis/models/ERS/", e), full.names = TRUE ))
+    lapply(fn,load,.GlobalEnv) #loaded 4 files: ERSmodels_within/pooling & ERSmodels_crops_within/pooling
+    
+    #Combine within and pooling lists of models together to perform analyses
+    ERSmodelswithin<-c(ERSmodels_within, ERSmodels_crops_within)
+    ERSmodelspooling<-c(ERSmodels_pooling, ERSmodels_crops_pooling)
+    
+    #Create dataframe of coefficients from each model (using within)
+    ERS_coef_df<- lapply(ERSmodelswithin,function(l){rownames_to_column(as.data.frame(l$coefficient), "variable")})%>% 
+      purrr::reduce(full_join, by = "variable") %>% 
+      setNames(c("variable", names(ERSmodelswithin))) %>% 
+      mutate(ERS=e) %>%  #Add column for ERS code
+      select(variable, ERS, everything()) #move predictor variable and ERS code to the beginning
+    
+    #Create dataframe of standard error from each model (using within)
+    ERS_se_df<- lapply(ERSmodelswithin, function(l){rownames_to_column(as.data.frame(summary(l)$coefficients[,2]),"variable")})        %>% purrr::reduce(full_join, by = "variable") %>% 
+        setNames(c("variable", names(ERSmodelswithin))) %>% 
+        mutate_if(is.numeric, round, digits=8) %>% 
+        mutate(ERS=e) %>%  #Add column for ERS code
+        select(variable, ERS, everything()) #move predictor variable and ERS code to the beginning
+    
+    #Create dataframe of p-values from each model (using within)
+    ERS_pval_df<- lapply(ERSmodelswithin, function(l){rownames_to_column(as.data.frame(summary(l)$coefficients[,4]),"variable")})      %>% purrr::reduce(full_join, by = "variable") %>% 
+        setNames(c("variable", names(ERSmodelswithin))) %>% 
+        mutate_if(is.numeric, round, digits=5) %>% 
+        mutate(ERS=e) %>%  #Add column for ERS code
+        select(variable, ERS, everything()) #move predictor variable and ERS code to the beginning
+    
+    #Run variance inflation factor (vif) to look at multicollinearity between variables and look at correlation matrices
+      #Can only run on model=pooling for plm 
+        #However, since vif is about examining indepdenent variables, theoretically there is less need to control for effects 
+        #VIF of 1=no correlation among predictors, >4 investigate, >10 serious correction
+    
+      #VIF on pooled data
+      ERS_vif<-lapply(ERSmodelspooling, function(p){rownames_to_column(as.data.frame(car::vif(p)), "variable")}) %>%
+        purrr::reduce(full_join, by = "variable") %>% 
+        setNames(c("variable", names(ERSmodelspooling))) %>% 
+        mutate(ERS=e) %>%  #Add column for ERS code
+        select(variable, ERS, everything()) #move predictor variable and ERS code to the beginning
+      
+      #Correlation matrix on within data
+      ERS_corr<-lapply(ERSmodelswithin, function(v){cov2cor(v$vcov)}) #will save in correct folder but not combine across ERS
+        
+    #Write csv for each of the created dataframes and rda for the correlation matrix list (save under Data/Analysis/df/ERS)
+      write_csv(ERS_coef_df, paste0("Data/Analysis/df/ERS/", e ,"/ERS_coef_df.csv"))
+      write_csv(ERS_se_df, paste0("Data/Analysis/df/ERS/", e ,"/ERS_se_df.csv"))
+      write_csv(ERS_pval_df, paste0("Data/Analysis/df/ERS/", e ,"/ERS_pval_df.csv"))
+      write_csv(ERS_vif, paste0("Data/Analysis/df/ERS/", e ,"/ERS_vif.csv"))
+      save(ERS_corr, file=paste0("Data/Analysis/df/ERS/", e ,"/ERS_corr.Rda"))
+  }
 
-An object of class c("plm", "panelmodel").
+#Read in the dataframe for each ERS and rbind to create combined dataframe (coefficients, pvals, and vif)
+  #ERS_coef_df
+    coef_files <- list.files(pattern='ERS_coef_df.csv', recursive=TRUE, full.names = TRUE)
+    ERS_coef_all <- do.call(rbind , lapply(coef_files, readr::read_csv)) %>% 
+      dplyr::arrange(variable) #order by variable so ERS together
+    
+   #ERS_se_df
+    se_files <- list.files(pattern='ERS_se_df.csv', recursive=TRUE, full.names = TRUE)
+    ERS_se_all <- do.call(rbind , lapply(se_files, readr::read_csv)) %>% 
+      dplyr::arrange(variable) #order by variable so ERS together
+    
+  #ERS_pval_df
+    pval_files <- list.files(pattern='ERS_pval_df.csv', recursive=TRUE, full.names = TRUE)
+    ERS_pval_all <- do.call(rbind , lapply(pval_files, readr::read_csv)) %>% 
+      dplyr::arrange(variable) #order by variable so ERS together
+  
+  #ERS_vif
+    vif_files <- list.files(pattern='ERS_vif.csv', recursive=TRUE, full.names = TRUE)
+    ERS_vif_all <- do.call(rbind , lapply(vif_files, readr::read_csv)) %>% 
+      dplyr::arrange(variable) #order by variable so ERS together
+    
+#Write combined df to csv files under Data/Analysis/df/ERS as all files
+  write_csv(ERS_coef_all, "Data/Analysis/df/ERS/ERS_coef_all.csv")
+  write_csv(ERS_se_all, "Data/Analysis/df/ERS/ERS_se_all.csv")
+  write_csv(ERS_pval_all, "Data/Analysis/df/ERS/ERS_pval_all.csv")
+  write_csv(ERS_vif_all, "Data/Analysis/df/ERS/ERS_vif_all.csv")
 
-A "plm" object has the following elements :
+```
 
-coefficients: the vector of coefficients,
-vcov: the variance–covariance matrix of the coefficients,
-residuals: the vector of residuals (these are the residuals of the (quasi-)demeaned model),
-weights: (only for weighted estimations) weights as specified,
-df.residual: degrees of freedom of the residuals,
-formula	: an object of class "pFormula" describing the model,
-model	: the model frame as a "pdata.frame" containing the variables used for estimation: the response is in first column followed by the other variables, the individual and time indexes are in the 'index' attribute of model,
-ercomp	: an object of class "ercomp" providing the estimation of the components of the errors (for random effects models only),
-aliased	: named logical vector indicating any aliased coefficients which are silently dropped by plm due to linearly dependent terms (see also detect.lindep),
-call	:the call.
 

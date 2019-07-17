@@ -9,6 +9,32 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
+
+Next Week Tasks:
+1. Make sure R Markdown HTML looks good for each script?
+2. Put important meeting notes/decisions as docs in repo (such as downloading coa)
+3. Figure out what wanting from below and copy over
+4. Eventually figure out where to put some stargazer script
+5. Make boxplots of Size of coefficient on y axis and variable on the xaxis (Average fraction of ag (pooled?) vs size of coefficient)-with differnt colors for models
+6. Boxplot with coefficient with its SE as the boxplot for each ERS; and then different colors for different models types
+7. Figure out clustering for robust standard error-deal with autocorrelation: Bruce, Kyle, Ashley paper: Sent cluster code: coef_test and Coeftest
+8. Respond to cluster email
+9. Test out R Phd cluster gain
+10. Lit review and write background section (with those paper references)
+11. Write up methodology
+12. Upload new version of NLCD notes to z drive and online
+13. Attempt xtsum on stata on school computer
+
+
+
+
+
+
+
+
+
+
+
 This R Markdown will be used to visualize the data and results
 
 Different types of visualizations stored here for now until come back and clean it up
