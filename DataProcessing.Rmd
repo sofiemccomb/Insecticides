@@ -10,7 +10,7 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 
 
-This R markdown document will gather and process the data necessary to perform the panel analyses laid out under the Analysis.Rmd. The data sources necessary for the analysis include up-to-date data for the Census of Agriculture (COA), USDA NASS Cropland Data Layer (CDL),National Land Cover Database (NLCD), and USDA Farm Resource Regions (Economic Service Research: ERS). The necessary data from each dataset will be gathered and combined together to have a full dataset in which each row is a unique County FIPS cod (determined by TIGER county shapefiles) per year of analysis (1997, 2002, 2007, 2012, 2017) where data availble.
+This R markdown document will gather and process the data necessary to perform the panel analyses laid out under the Analysis.Rmd. The data sources necessary for the analysis include up-to-date data for the Census of Agriculture (COA), USDA National Agricultural Statistics Service (NASS) Cropland Data Layer (CDL), National Land Cover Database (NLCD), and USDA Farm Resource Regions (Economic Service Research: ERS). The necessary data from each dataset will be gathered and combined together to have a full dataset in which each row is a unique county Federal Information Processing Standards (FIPS) code (determined by TIGER 2018 county shapefiles) per year of analysis (1997, 2002, 2007, 2012, 2017) where data availble.
 
 The data to gather includes:  
 
@@ -24,7 +24,7 @@ The data to gather includes:
 4. ERS Regions  
 
 
-More detail for each dataset will be given below as the data for each dataset is gathered and processed.
+More detail for each dataset will be given below as the data for each dataset is gathered and processed. All final data processed from each source is available under the Data/DataProcessing/df folder as a csv. The dataframe of all combined sources is saved as fulldata, in both csv and rda format (to be loaded into future Analysis.Rmd). Metadata for each individual source final data as well as for fulldata is available in the df folder as separate txt files.
 
 
 ## Data Formatting
@@ -46,7 +46,15 @@ More detail for each dataset will be given below as the data for each dataset is
 ```
 
 
-### 1) Census of Agriculture
+### 1) Census of Agriculture (CoA)
+
+Census of Agriculture (CoA) datasets were used to define the agricultural properties of each county for use in regression, such as the amount of insectidies used and the area of harvested cropland per county.  
+
+CoA csvs were downloaded individually by agricultural property from the USDA National Agricultural Statistics Service (NASS) Quickstats:https://quickstats.nass.usda.gov/. The downloaded csvs are found in the Data/DataProcessing/CoA folder. An excel sheet of Metadata is provided in the folder, showing snipped images for how each dataset was selected and downloaded on the website. All csvs were labeled as the property being downloaded. Columns are defined by USDA NASS online.
+
+The datasets were combined into one dataframe, and further calculations and clean-up work was performed in order to get the data ready for regressions. 
+
+More information as well as the data wrangling and caluclations can be found in the R/DataProcessing/COA.R script.
 
 ```{r COA, message=F, warning=F}
 
@@ -57,11 +65,23 @@ source ("R/DataProcessing/COA.R")
 ```
 
 
-### 2) CDL
+### 2) Cropland Data Layer (CDL)
+
+Cropland Data Layer (CDL) datasets were used to define crop diversity per county, on the basis of summed crop types and acreage per county.
+
+CDL datasets were downloaded as a zip folder of csvs from the USDA National Agricultural Statistics Service (NASS): https://www.nass.usda.gov/Research_and_Science/Cropland/sarsfaqs2.php. The folder contained csvs of the annual number of pixels or acreages for each crop type per county for 2007-2018. The csvs can be found under Data/DataProcessing/CDL/County_Pixel_Count, and metadata readme txt files from the CDL are also provided in the folder.
+
+The columns of the csvs are category numbers, which were crosswalked to the crop name using the CDL_crosswalk.csv found under Data/DataProcessing/CDL, which was created from data retrieved from:https://www.nass.usda.gov/Research_and_Science/Cropland/docs/CDL_2013_crosswalk.php. 
+
+
+The total cropland area per county by crop type was summed for the years of interest (2008, 2012, and 2016 to best match other datasets) and then Simpson's diversity index was performed to get a measure of crop diversity per county. Crop acreage accounts for double cropping and crop rotation situations (i.e. counts acreage again if it was used for another crop).
+
+More information as well as the caluclations for crop diversity can be found in the R/DataProcessing/CDL.R script.
+
 
 ```{r CDL, message=F, warning=F}
 
-#Prepare Cropland Data Layer data (CDL) needed for the regression analyses
+#Prepare Cropland Data Layer data (CDL) needed for the regression analyses (calculate crop diversity per county)
 source ("R/DataProcessing/CDL.R")
 #Output saved as Data/DataProcessing/df/cdl.csv
 
@@ -69,7 +89,21 @@ source ("R/DataProcessing/CDL.R")
 
 
 
-### 3) NLCD
+### 3) National Land Cover Databse (NLCD)
+
+National Land Cover Database (NLCD) raster files and TIGER 2018 county shapefiles were used to calculate landscape metric analyses at the county level, to be used as metrics of landscape composition and configuration in the regressions. 
+
+NLCD data downlaod from the Multi-Resolution Land Characteristic Consortium (MRLC) as zip folder of multi-year NLCD .img files and supporting information,  from: https://www.mrlc.gov/data. NLCD layers were available for the years 2001, 2004, 2006, 2008, 2011, 2013, and 2016. For the analysis, the years 2001, 2006, 2011, and 2016 were selected in order to best match up with the ag census years of 2002, 2007, 2012, and 2017. 
+
+County borders were defined by the Topologically Integrated Geographic Encoding and Referencing (TIGER) 2018 county shapefile created from U.S. Census Bureau data and avaiable on Data.gov, download at https://catalog.data.gov/dataset/tiger-line-shapefile-2018-nation-u-s-current-county-and-equivalent-national-shapefile.
+
+These datasets are not stored in the repository, as they are too large and take up too much storage. The results from the fragstats analyses are stored in csv format that are available for the years of interest (2001, 2006, 2011, 2016) under the Data/DataProcessing/NF folder. 
+
+The NF.R script under R/DataProcessing provides detailed information for how landscape metric analyses were performed by county using the landscapemetrics package, which replicates FRAGSTATS software functionality in R. More information on fragstats can be found at https://www.umass.edu/landeco/research/fragstats/documents/fragstats.help.4.2.pdf. The script provides the function created to perform theses analyses, but the function must be run from a desktop/cluster where the large NLCD and TIGER spatial files are stored. The script goes into more detail on the time and computer requirements of the computations. 
+
+Calculations performed includeclass metrics of edge density, edge length, percentage landscape, and mean patch area, and the landscape diversity metric. All 5 metrics were performed for all categories, and edge class and landscape metrics were performed for 5 binary reclassifications: forest vs crops, grassland/shrublands vs crops, deciduous forest vs low intensity development (LID), mixed forest vs LID, and natural lands vs crops. The results can be found by year in the Data/DataProcessing/NF folder. A NF_ metadata txt file is availabe in the folder detailing what the column names stand for (same across years).
+
+The NLCD.R script under R/DataProcessing combines all the year csvs found in the NF data folder and then performs additinal caculations and data wrangling needed for regressions. The NLCD script is called on below, as the NF script is already run and the data stored. 
 
 
 ```{r NLCD, message=F, warning=F}
@@ -83,6 +117,13 @@ source ("R/DataProcessing/NLCD.R")
 
 
 ### 4) ERS
+
+USDA Farm Resource Regions (Economic Service Research: ERS) data was collected, on the basis of ERS literature https://www.ers.usda.gov/publications/pub-details/?pubid=42299.
+
+An excel sheet crosswalking the FIPS (Federal Information Processing Standards) county codes with the 9 resource regions is available under Data/DataProcessing/ERS. The data was read in and will be combined with all other data regions in order to perform regression analyses on the basis of ERS resource regions.
+
+There is no separate script for this data section.
+
 
 ```{r ERS, message=F, warning=F}
 
@@ -98,7 +139,7 @@ colnames(ERS)<-c("FIPS", "ERSCode", "ERSName")
 
 ## Data Combination
 
-Combine the COA, CDL, NLCD, and ERS data to create final dataframe to be saved and used in regression analyses (Analysis.Rmd)
+Combine the COA, CDL, NLCD, and ERS data to create final dataframe (fulldata) to be saved and used in regression analyses (Analysis.Rmd). Data and metadata for the fulldata dataframe can be found in the Data/DataProcessing/df folder.
 
 
 ```{r combine, message=F, warning=F}
@@ -130,10 +171,9 @@ fulldata<-fulldata %>%
     #11001, 24510, 29510, 46113, 51510, 51520, 51540, 51570, 51590, 51620, 51630, 51640, 51650, 51660, 51670, 51680, 51683, 51690, 51700, 51710, 51730, 51735, 51740, 51750, 51760, 51770, 51775, 51790, 51820, 51830, 51840, 8014, 51560, 51780, 12025, 30113
 
 #Add in column calculating Crop Intensity needed for regression
-  #harvcrop/((pland_crops/100)*countyarea)
-  #Harvested Crop Acreage/Crop Land Acreage, 
-    #where both acreages (harvcrop and countryarea) are from CoA and
-    #pland_crops is from the NLCD
+  #Crop intensity equals Harvested Crop Acreage/Crop Land Acreage,
+    #where crop land acreage is defined by percentage cropland (pland_crops) multiped by county area (countyarea)
+    #Both acreages (harvcrop and countyarea) are from CoA and pland_crops is from the NLCD
 
 fulldata<-fulldata %>% 
   dplyr::mutate(cropintensity=harvcrop/((pland_crops/100)*countyarea))

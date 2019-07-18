@@ -11,10 +11,8 @@ knitr::opts_chunk$set(echo = TRUE)
 
 
 Next Week Tasks:
-1. Make sure R Markdown HTML looks good for each script?
-2. Put important meeting notes/decisions as docs in repo (such as downloading coa)
-3. Figure out what wanting from below and copy over
-4. Eventually figure out where to put some stargazer script
+1. Make sure R Markdown HTML looks good for each script (Run DP and Analysis)
+3. Figure out what wanting from below and copy over- Eventually figure out where to put some stargazer script
 5. Make boxplots of Size of coefficient on y axis and variable on the xaxis (Average fraction of ag (pooled?) vs size of coefficient)-with differnt colors for models
 6. Boxplot with coefficient with its SE as the boxplot for each ERS; and then different colors for different models types
 7. Figure out clustering for robust standard error-deal with autocorrelation: Bruce, Kyle, Ashley paper: Sent cluster code: coef_test and Coeftest
@@ -25,7 +23,9 @@ Next Week Tasks:
 12. Upload new version of NLCD notes to z drive and online
 13. Attempt xtsum on stata on school computer
 
-
+7/18 Try to finish this Rmd, with all visualizations, boxplots, clean up code, andany stargazer
+then run all Rmd and clean up the formatting
+Than look at paper stuff
 
 
 

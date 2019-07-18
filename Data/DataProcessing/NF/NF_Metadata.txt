@@ -1,0 +1,73 @@
+Column names defined for each of the 4 csvs found under Data/DataProcessing/NF, created by the NF.R script. 
+	
+All column names (except year and FIPS) are derived from the landscapemetrics (fragstats) computation calculated in the script.
+Edge density is in meters per hectare, edge length is in meters, percentage of landscape is a percent (not divided by 100),
+	mean patch area is in hectares, and landscape diversity is unitless (between 0-1).  
+
+year=year of analysis
+FIPS=5-digit Federal Information Processing Standards county code
+ed_wat= edge density of water 
+ed_ldev= edge density of low intensity development
+ed_hdev= edge density of high intensity development
+ed_bare= edge density of barren land 
+ed_df= edge density of deciduous forest
+ed_ef= edge density of evergreen forest
+ed_mf= edge density of mixed forest
+ed_shrub= edge density of shrubland
+ed_grass= edge density of grassland
+ed_pas= edge density of pasture land
+ed_crops= edge density of crop land
+ed_wet= edge density of wetland
+el_wat= edge length of water
+el_ldev= edge length of low intensity development
+el_hdev= edge length of high intensity development
+el_bare= edge length of barren land
+el_df= edge length of deciduous forest
+el_ef= edge length of evergreen forest
+el_mf= edge length of mixed forest
+el_shrub= edge length of shrubland
+el_grass= edge length of grassland
+el_pas= edge length of pasture land
+el_crops= edge length of crop land
+el_wet= edge length of wetland
+pland_wat= percentage of landscape water
+pland_ldev= percentage of landscape low intensity development
+pland_hdev= percentage of landscape high intensity development
+pland_bare= percentage of landscape barren
+pland_df= percentage of landscape deciduous forest
+pland_ef= percentage of landscape evergreen forest
+pland_mf = percentage of landscape mixed forest
+pland_shrub= percentage of landscape shrubland
+pland_grass= percentage of landscape grassland
+pland_pas= percentage of landscape pasture land
+pland_crops= percentage of landscape crop land
+pland_wet= percentage of landscape wetland
+mna_wat= mean patch area water
+mna_ldev= mean patch area low intensity development
+mna_hdev= mean patch area high intensity development
+mna_bare= mean patch area barrent
+mna_df= mean patch area deciduous forest
+mna_ef= mean patch area evergreen forest
+mna_mf= mean patch area mixed forest
+mna_shrub= mean patch area shrubland
+mna_grass= mean patch area grassland
+mna_pas= mean patch area pasture land
+mna_crops= mean patch area crop land
+mna_wet= mean patch area wetland
+msidi= Simpson's diversity index
+tec_forest_fc= edge length of forest (deciduous, mixed, evergreen) under binary forest-crops reclassfication
+tec_crops_fc= edge length of crops under binary forest-crops reclassfication
+tel_forestcrop_fc= shared edge length of forest and crops under binary forest-crops reclassfication
+tec_shrubgrass_sgc= edge length of shrublands and grasslands under binary shrubland/grassland-crops reclassfication
+tec_crops_sgc= edge length of crops under binary shrubland/grassland-crops reclassfication
+tel_shrubgrasscrop_sgc= shared edge length of shrublands/grasslands and crops under binary shrubland/grassland-crops reclassfication
+tec_deciforest_dfLID= edge length of deciduous forest under binary deciduous forest-low intensity development reclassification
+tec_LID_dfLID=edge length of low intensity development under binary deciduous forest-low intensity development reclassification
+tel_deciforestLID_dfLID= shared edge length of deciduous forest and low intensity development under binary deciduous forest-low intensity development reclassification
+tec_mixforest_mfLID=edge length of mixed forest under binary mixed forest-low intensity development reclassification
+tec_LID_mfLID=edge length of low intensity development under binary mixed forest-low intensity development reclassification
+tel_mixforestLID_mfLID=shared edge length of mixed forest and low intensity development under binary mixed forest-low intensity development reclassification
+tec_natural_nc=edge length of natural lands (forest, shrubs, grass, wetlands) under binary natural lands-crops reclassification
+tec_crops_nc=edge length of crops under binary natural lands-crops reclassification
+tel_naturalcrops_nc=shared edge length of natural lands and crops under binary natural land-crops reclassification
+	

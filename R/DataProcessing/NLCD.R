@@ -1,6 +1,9 @@
-#This R Script gathers and formats the NLCD analysis data for regression analyses.
+#This R Script gathers and formats the NLCD analysis data (NF folder data) for regression analyses.
+  
   #Read through R/DataProcessing/NF.R script for more information on where the data was sourced and how it was processed.
-
+  
+  #This script essentially combines all the year csvs and then calculates shared edged metrics for the binary reclassifications.
+ 
 #Load Packages
   #Ensure necessary packages are installed and loaded
   library(tidyverse) #Datatable manipulation

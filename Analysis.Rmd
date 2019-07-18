@@ -10,16 +10,16 @@ knitr::opts_chunk$set(echo = TRUE)
 
 This R Markdown document will perform the panel linear model regressions for determining the relationship of agricultural and landscape variables on insectide use. The regressions are performed in separate R scripts that are sourced below and than analyzed. 
 Current primary variables to be examined include:
-1. pland_crops: fraction of crop areas per county
-2. cropintensity: harvested acres per area of county cropland
-3. SDI: crop diversity
-4. msidi: simpsons landscape diversity 
-5. te_shared_c_nc: shared edge length between natural and cropland divided by the total edge length of crop
-6. mna_crops: patch size of cropland
-7. largefarm_planted: acreage of harvested acres for farms >500acres
+1. pland_crops: percentage of county with cropland area, in percentage
+2. cropintensity: harvested cropland acres per area of county cropland, in acres/acres
+3. SDI: crop diversity, 0-1 value
+4. msidi: Simpson's landscape diversity, 0-1 value 
+5. te_shared_c_nc: shared edge length between natural land and cropland divided by the total edge length of cropland, in   meters/meters
+6. mna_crops: mean patch size in hectares of cropland, in hectares
+7. largefarm_planted: acreage of harvested acres for farms >500acres, in acres
 
 Secondary variables include:
-1. crop covariates: soysmallgrain_planted + corn_planted + fruitveg_planted
+1. crop covariates: soysmallgrain_planted + corn_planted + fruitveg_planted, all in acres
 
 Analyses are run for all counties pooled together (cp) and by Economic Research Service (ERS) Farm Resource Regions. County and Year fixed effects (and a combination of them) will be run for each regression.
 Furthermore, two years (1997 and 2002) and missing data for SDI, so versions will be run excluding these purposefully.
@@ -95,10 +95,12 @@ Twoways, individual, and time fixed effects models will be run for each regressi
 
 Default of regression is na.omit, so okay to currently rows with NA values as they will be excluded from the analysis by the regression functions. 
 
+Metadata available as Data/Analysis/df/DF_Metadata.txt. File generally describes the columns available in each of the created csv outputs under Data/Analysis/df subfolders. 
+
 
 ### 1) Counties Pooled (cp)
 
-The cpmodels script performs the plm models for all counties pooled together using the run_plm functoin/script, and the list of model results are loaded and analyzed below.
+The cpmodels script performs the plm models for all counties pooled together using the run_plm function/script, and the list of model results are loaded and analyzed below.
 
 #### Run panel regressions and save outputs as list of models in RDA format to be loaded
 

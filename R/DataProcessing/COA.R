@@ -1,6 +1,9 @@
 #This R script gathers and formats all the Census of Agriculture data (COA) needed for the regression analyses. 
-  #Data source: Type more in here
-  #From notes pull information about downloading each of the 22 items and made include separate doc with snippets in a reference folder in github
+  #Data source: USDA National Agricultural Statistics Service (NASS) Quickstats:https://quickstats.nass.usda.gov/
+  #Downloaded data can be found under the Data/DataProcessing/CoA folder, which also shows the agriculture properties of interest..
+    #The metadata.xlsx shows snipped images of how the individual csvs were downloaded from Quickstats. 
+  #Data was gathered for 1997, 2002, 2007, 2012, and 2017, which are the years of interest, 
+    #and for the agricultural properties thought to be highly related to insectide use, based on previous literature.
 
 #Load Packages
     #Ensure necessary packages are installed and loaded

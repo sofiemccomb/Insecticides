@@ -1,20 +1,39 @@
-#Function created to perform landscape metric analyses of the National Land Cover Databases at the county level
-  #The NLCD rasters and county shapefiles are too large to store onto Github and therefore this script was run on a hard-drive
-  #The file_paths could be changed to another computer location to perform this analysis, which creates the values 
-  #necessary to create the NLCD data table to be processed in the DataProcessing.Rmd file for use in the regressions.
-  #This script takes a long time, and often needs a 32 GB ram computer in order to complete the memory processing.
+#Function created to perform landscape metric analyses (Fragstats) of the National Land Cover Databases at the county level.
+  
+  #Data sourced: 
+    #NLCD raster data downloaded from: https://www.mrlc.gov/data
+    #TIGER2018 County shapefile downloaded from:https://catalog.data.gov/dataset/tiger-line-shapefile-2018-nation-u-s-current-county-and-equivalent-national-shapefile
 
-  #NLCD raster data sourced from:
-  #TIGER2018 County shapefile sourced from:
+  #Fragstats analyses were run for each county using the NLCD raster data and TIGER county outlines.
+    #The landscapemetrics package was used, which performs similar analyses as FRAGSTATS software. 
+      #More information on the metrics can be found at: https://www.umass.edu/landeco/research/fragstats/documents/fragstats.help.4.2.pdf
+    #Landscape metrics included class metrics of edge density, edge length, percentage landscape, and mean patch area,
+      #and the landscape diversity metric.
+    #All 5 metrics were performed for all categories, and edge class and landscape metrics were performed for 5 binary 
+      #reclassifications: forest vs crops, grassland/shrublands vs crops, deciduous forest vs low intensity development (LID), 
+        #mixed forest vs LID, and natural lands vs crops
 
-  #Year options: 2001, 2006, 2011, 2016
-  #Performed by state ansi code for easier to handle datasets and processing
+  #NLCD legend can be found at: https://www.mrlc.gov/data/legends/national-land-cover-database-2016-nlcd2016-legend
+    #Rasters were reclassified to binary versions on the basis of these legend codes
+
+  #Function input options: 
+    #Year options: 2001, 2006, 2011, 2016 (download NLCD img files)
+    #State options: Performed by state ansi code for easier to handle datasets and processing, 
+      #which are defined here https://www.census.gov/library/reference/code-lists/ansi.html 
+
+  #The NLCD rasters and county shapefiles are too large to store onto Github and therefore this script was run on a hard-drive.
+    #The file_paths could be changed to another computer location to perform this analysis, which creates the values 
+      #necessary to create the NLCD data table to be processed in the DataProcessing.Rmd file for use in the regressions.
+    #This script takes a long time, and often needs a 32 GB ram computer in order to complete the memory processing.
 
   #Once processing was completed, the state csvs were combined for each year through a rbind, using code similar to below:
     # file_names <- dir("Z:/Sofie/Data/NLCD/Data/NLCD_Frag_Cluster/nlcd_2001", pattern = ".csv", full.names = TRUE) #files located per year
     # nlcd <- do.call(rbind,lapply(file_names,read.csv))
     # write.csv(nlcd, "Z:/Sofie/Data/NLCD/Data/NLCD_Frag_Cluster/nlcd_2001/all.csv")
-  #The final year products have been renamed by there year and are provided in the Data/DataProcessing/nf folder (nf stands for nlcd_fragstats)
+
+  #The final year products have been renamed by year and are provided in the Data/DataProcessing/nf folder (nf stands for nlcd_fragstats)
+    #nf results are used in the NLCD script and DataProcessing.Rmd to prepare data for regressions.
+
 
 nf=function(year, state){
   

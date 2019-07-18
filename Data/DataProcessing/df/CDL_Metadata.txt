@@ -1,0 +1,5 @@
+Column names defined for CDL.csv found under Data/DataProcessing/df, created by the CDL.R script. 
+
+FIPS=5-digit Federal Information Processing Standards county code
+Year=year of analysis
+SDI= Simpsons' diversity index (crop diversity, 0-1 value)

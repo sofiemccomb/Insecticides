@@ -1,0 +1,26 @@
+Column names defined for COA.csv found under Data/DataProcessing/df, created by the COA.R script. 
+
+FIPS=5-digit Federal Information Processing Standards county code
+Year=year of analysis
+countyarea= county area, in acres
+totalplanted= total planted cropland area, in acres (summed from harvested cropland and not harvested cropland columns)
+harvcrop= total harvested cropland area, in acres
+cropfail= total failed cropland area, in acres
+largefarms= total area of farms >500 acres, in acres (summed from acreage of farms 500-1000 and >1000 acres)
+income= average farm income, in $ per hectare
+fertilizer= total area of fertilizer use, in acres
+insecticides= total area of insecticide use, in acres
+irrigate= total area of irrigated land, in acres
+soy_smallgrains= total area of cropland with soybeans and small grains(oat, wheat, barley), in acres
+corn= total area of cropland with corn(corngrain and cornsill), in acres
+fruitveg= total area of cropland with fruit, nuts, and vegetables, in acres
+totalplanted_hectares= total planted cropland area, in hectares (derived from totalplanted column)
+income_inflated= average farm income adjusted for inflation, in $ per hectare
+insect_planted= total area of insecticide use (acres) divided by total planted cropland area (acres) [insecticides/totalplanted]
+harv_county= total harvested cropland area (acres) divided by county area (acres) [harvcrop/countyarea]
+soysmallgrain_planted= total area of cropland with soybeans and small grains (acres) divided by total planted cropland area (acres) [soy_smallgrains/totalplanted]
+corn_planted= total area of cropland with corn (acres) divided by total planted cropland area (acres) [corn/totalplanted]
+fruitveg_planted= total area of cropland with fruit, nuts, and vegetables (acres) divided by total planted cropland area (acres) [fruitveg/totalplanted]
+income_planted= average farm income adjusted for inflation ($/hectare) divided by total planted cropland area (hectares) [income_inflated/totalplanted_hectares]
+largefarm_planted=total area of farms >500 acres (acres) divided by total planted cropland area (acres) [largefarms/totalplanted]
+irrigate_planted= total area of irrigated land (acres) divided by total planted cropland area (acres) [irrigate/totalplanted]

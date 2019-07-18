@@ -1,26 +1,31 @@
-#This R Script gathers and formats the USDA NASS Cropland Data Layer data for regression analyses.
-  #Data source: Enter more
-  #Give more background
-  #This script will examine the CDL County_Pixel_Count csvs and calculate the diversity of crops in each county
-  #Data downloaded in zip folder from the following source: https://www.nass.usda.gov/Research_and_Science/Cropland/sarsfaqs2.php
-  #Read me file in Data/CDL/County_Pixel_Count provided further informaiton on grouped columns and pixel counts
-  #Crosswalk file found here: https://www.nass.usda.gov/Research_and_Science/Cropland/sarsfaqs2.php#Section1_6.0 #download attribute table of stats
-  #Also investigated 9 missing VA counties in 2016 acres (but not pixels) data, as well as double crop issue (scatterplot for how big of an issue),
-  #But neither of those included in this script because not necessary for final data gathering/processing
-  #Also orginally also performed analyses for 30m pixel for each of the three years as well, but not including here as decided to use
-  #acres in the final analysis (very similar process per year between acres and pixel)
+#This R Script gathers and formats the USDA NASS Cropland Data Layer data to calculate crop diversity for regression analyses.
+  
+  #Data source: USDA National Agricultural Statistics Service Cropland Data Layer
 
-#Group categories as defined in readme file
-  # Corn_all         = Category_001 + Category_225 + Category_226 + Category_237 + Category_241;
-  # Cotton_all       = Category_002 + Category_232 + Category_238 + Category_239;
-  # Sorghum_all      = Category_004 + Category_234 + Category_235 + Category_236;
-  # Soybeans_all     = Category_005 + Category_026 + Category_239 + Category_240 + Category_241 + Category_254;
-  # Barley_all       = Category_021 + Category_233 + Category_235 + Category_237 + Category_254;
-  # Wheat_Durum_all  = Category_022 + Category_230 + Category_234;
-  # Wheat_Winter_all = Category_024 + Category_026 + Category_225 + Category_236 + Category_238;
-  # Oats_all         = Category_028 + Category_226 + Category_240;
-  # Canteloupe_all   = Category_209 + Category_231;
-  # Lettuce_all      = Category_227 + Category_230 + Category_231 + Category_232 + Category_233
+  #Data for analysis found in Data/DataProcessing/CDL folder  
+    #Csvs downloaded in zip folder from the following source: https://www.nass.usda.gov/Research_and_Science/Cropland/sarsfaqs2.php
+      #Csvs found in Data/DataProcessing/CDL/County_Pixel_Count folder, along with readme txt files providing 
+        #further information on grouped columns and pixel counts.
+    #Crosswalk information found here: https://www.nass.usda.gov/Research_and_Science/Cropland/docs/CDL_2013_crosswalk.php
+  
+  #This script will examine the CDL crop type and acreage csvs and calculate the diversity of crops in each county.
+    #The total cropland area per county by crop type was summed for the years of interest 
+      #and then Simpson's diversity index was performed to get a measure of crop diversity per county. 
+  
+  #Used acreage csvs for final analysis, although results using pixel datasets were very similar.
+
+
+  #Group categories as defined in readme file (provided for easy reference)
+    # Corn_all         = Category_001 + Category_225 + Category_226 + Category_237 + Category_241;
+    # Cotton_all       = Category_002 + Category_232 + Category_238 + Category_239;
+    # Sorghum_all      = Category_004 + Category_234 + Category_235 + Category_236;
+    # Soybeans_all     = Category_005 + Category_026 + Category_239 + Category_240 + Category_241 + Category_254;
+    # Barley_all       = Category_021 + Category_233 + Category_235 + Category_237 + Category_254;
+    # Wheat_Durum_all  = Category_022 + Category_230 + Category_234;
+    # Wheat_Winter_all = Category_024 + Category_026 + Category_225 + Category_236 + Category_238;
+    # Oats_all         = Category_028 + Category_226 + Category_240;
+    # Canteloupe_all   = Category_209 + Category_231;
+    # Lettuce_all      = Category_227 + Category_230 + Category_231 + Category_232 + Category_233
 
 #Load Packages
     #Ensure necessary packages are installed and loaded
