@@ -50,7 +50,7 @@ More detail for each dataset will be given below as the data for each dataset is
 
 Census of Agriculture (CoA) datasets were used to define the agricultural properties of each county for use in regression, such as the amount of insectidies used and the area of harvested cropland per county.  
 
-CoA csvs were downloaded individually by agricultural property from the USDA National Agricultural Statistics Service (NASS) Quickstats:https://quickstats.nass.usda.gov/. The downloaded csvs are found in the Data/DataProcessing/CoA folder. An excel sheet of Metadata is provided in the folder, showing snipped images for how each dataset was selected and downloaded on the website. All csvs were labeled as the property being downloaded. Columns are defined by USDA NASS online.
+CoA csvs were downloaded individually by agricultural property from the USDA National Agricultural Statistics Service (NASS) Quickstats: https://quickstats.nass.usda.gov/. The downloaded csvs are found in the Data/DataProcessing/CoA folder. An excel sheet of Metadata is provided in the folder, showing snipped images for how each dataset was selected and downloaded on the website. All csvs were labeled as the property being downloaded. Columns are defined by USDA NASS online.
 
 The datasets were combined into one dataframe, and further calculations and clean-up work was performed in order to get the data ready for regressions. 
 
