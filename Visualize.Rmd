@@ -1,7 +1,6 @@
 ---
 title: "Visualize"
 author: "Sofie McComb"
-date: "July 5, 2019"
 output: html_document
 ---
 
@@ -9,397 +8,145 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-
-Next Week Tasks:
-1. Make sure R Markdown HTML looks good for each script (Run DP and Analysis)
-3. Figure out what wanting from below and copy over- Eventually figure out where to put some stargazer script
-5. Make boxplots of Size of coefficient on y axis and variable on the xaxis (Average fraction of ag (pooled?) vs size of coefficient)-with differnt colors for models
-6. Boxplot with coefficient with its SE as the boxplot for each ERS; and then different colors for different models types
-7. Figure out clustering for robust standard error-deal with autocorrelation: Bruce, Kyle, Ashley paper: Sent cluster code: coef_test and Coeftest
-8. Respond to cluster email
-9. Test out R Phd cluster gain
-10. Lit review and write background section (with those paper references)
-11. Write up methodology
-12. Upload new version of NLCD notes to z drive and online
-13. Attempt xtsum on stata on school computer
-
-7/18 Try to finish this Rmd, with all visualizations, boxplots, clean up code, andany stargazer
-then run all Rmd and clean up the formatting
-Than look at paper stuff
+This R Markdown will be used to visualize the data and results developed from the Analysis.Rmd.
 
 
-
-
-
-
-
-
-
-This R Markdown will be used to visualize the data and results
-
-Different types of visualizations stored here for now until come back and clean it up
-
-## Load Packages
+### Load Packages
 
 ```{r packages, message=F, warning=F}
 
-#Load the needed packages, which are loaded in the R scrips as well (install first if necessary)
-  # library(tidyverse) #Datatable manipulation (all functions)
+#Load the needed packages (install first if necessary)
+library(ggplot2) #data visualization
+library(ggpubr)#To arrange ggplots on a page
+# library(tidyverse) #Datatable manipulation (all functions)
   # library(tools) #For file_path sans_ext (COA.R)
   # library(purrr) #For reduce function using full_join (COA.R)
   # library(zoo) #For na.locf function (COA.R)
   # library(janitor) #Clean colnames (CDL.R)
   # library(vegan) #Perform diversity calculation (CDL.R)
   # library(readxl) #read excel .xlsx (ERS data)
-# library(ggplot2) #data visualization
+
+
 # library(stargazer)#regression and summary statistics tables
 # library(plm) #linear models for panel data
 # library(lmtest) #testing for linear regression models
 
 #Set options
-  options(scipen=999) #no scientific notation (all)
+  #options(scipen=999) #no scientific notation (all)
+
+
+library(forestplot)
+library(tidyverse)
+
+#Load data for coefficient and se values
+cp_coef_df<-readr::read_csv("Data/Analysis/df/CP/cp_coef_df.csv")
+cp_se_df<- readr::read_csv ("Data/Analysis/df/CP/cp_se_df.csv")
 
 ```
 
 
-## Old Boxplot Code
+### Boxplots of time trends of covariates
 
-```{r}
+Creating boxplots showing the values for each of the variables being considered in any of the regression models, across the years being considered. Using the fulldata datasets (loaded in the variable_boxplots.R script sourced below).
 
-#Step 2: Summarize data and also look at data with boxplots
-##############################################################################################################
 
-#Source this to another script/function?
+```{r var boxplots, message=F, warning=F}
 
-ag_summary <- agdata %>% 
-  group_by(Year) %>% 
-  summarize(
-    mean_insect_planted=mean(insect_planted, na.rm=TRUE),
-    sd_insect_planted=sd(insect_planted, na.rm=TRUE),
-    mean_harv_county=mean(harv_county, na.rm=TRUE),
-    sd_harv_county=sd(harv_county, na.rm=TRUE),
-    mean_soysmallgrain_planted=mean(soysmallgrain_planted, na.rm=TRUE),
-    sd_soysmallgrain_planted=sd(soysmallgrain_planted, na.rm=TRUE),
-    mean_corn_planted=mean(corn_planted, na.rm=TRUE),
-    sd_corn_planted=sd(corn_planted, na.rm=TRUE),
-    mean_fruitveg_planted=mean(fruitveg_planted, na.rm=TRUE),
-    sd_fruitveg_planted=sd(fruitveg_planted, na.rm=TRUE),
-    mean_income_planted=mean(income_planted, na.rm=TRUE),
-    sd_income_planted=sd(income_planted, na.rm=TRUE),
-    mean_irrigate_planted=mean(irrigate_planted, na.rm=TRUE),
-    sd_irrigate_planted=sd(irrigate_planted, na.rm=TRUE),
-    mean_SDI=mean(SDI, na.rm=TRUE),
-    sd_SDI=sd(SDI, na.rm=TRUE)
-  )
+#Source R script to create boxplot visualizations
+source("R/Visualize/variable_boxplots.R")
 
-#Nice boxplot website: http://t-redactyl.io/blog/2016/04/creating-plots-in-r-using-ggplot2-part-10-boxplots.html 
-#Eventually could find way to try to iterate through and just change y and the title
+#Create boxplots for variables of interest (NA values will be removed)
+insect_plot<-var_boxplot(variable=fulldata$insect_planted, yaxis="Prop. Cropland w/ Insecticides")
+plandcrops_plot<-var_boxplot(variable=fulldata$pland_crops, yaxis="Prop. of Cty in Cropland")
+cropintensity_plot<-var_boxplot(variable=fulldata$cropintensity, yaxis="Cropland Intensity")
+msidi_plot<-var_boxplot(variable=fulldata$msidi, yaxis="Landscape Diversity")
+mnacrops_plot<-var_boxplot(variable=fulldata$mna_crops, yaxis="Avg. Acreage of Crop Patches")
+largefarm_plot<-var_boxplot(variable=fulldata$largefarm_planted, yaxis="Prop. of Cropland with Lg. Farms")
+ncshared_plot<-var_boxplot(variable=fulldata$te_shared_c_nc, yaxis="Natural to Crop Land Edges")
+SDI_plot<-var_boxplot(variable=fulldata$SDI, yaxis="Crop Diversity")
+soygrain_plot<-var_boxplot(variable=fulldata$soysmallgrain_planted, yaxis="Prop. Soybeans & Sm. Grains")
+corn_plot<-var_boxplot(variable=fulldata$corn_planted, yaxis="Prop. Corn")
+fruitveg_plot<-var_boxplot(variable=fulldata$fruitveg_planted, yaxis="Prop. Fruit & Veg.")
 
-#Boxplot insecticides on planted cropland
-fill <- "#4271AE"
-lines <- "#1F3552"
-insectplot<-ggplot(agdata, aes(x=factor(Year), y=insect_planted)) + 
-  geom_boxplot(colour=lines, fill=fill, size=1, notch=TRUE)+
-  scale_y_continuous(name="Prop.Cropland with Insecticides")+
-  scale_x_discrete(name="Year")+
-  theme_light()+
-  theme(panel.grid.major = element_line(colour = "#d3d3d3"),
-        panel.grid.minor = element_blank(),
-        axis.text=element_text(colour="black", size = 12),
-        axis.line = element_line(size=0.5, colour = "black"))
+#Arrange boxplots on one page
+allvarplots<-ggarrange(insect_plot, plandcrops_plot, cropintensity_plot,
+             msidi_plot, mnacrops_plot, largefarm_plot, 
+             ncshared_plot, SDI_plot, 
+             soygrain_plot, corn_plot, fruitveg_plot, 
+          labels = c("A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K"),
+          ncol = 4, nrow = 3)
 
-#Boxplot harvested cropland per county area
-fill <- "#4271AE"
-lines <- "#1F3552"
-harvestplot<-ggplot(agdata, aes(x=factor(Year), y=harv_county)) + 
-  geom_boxplot(colour=lines, fill=fill, size=1, notch=TRUE)+
-  scale_y_continuous(name="Prop. County Harvested Cropland",
-                     breaks = seq(0, 1, 0.2))+
-  scale_x_discrete(name="Year")+
-  theme_light()+
-  theme(panel.grid.major = element_line(colour = "#d3d3d3"),
-        panel.grid.minor = element_blank(),
-        axis.text=element_text(colour="black", size = 12),
-        axis.line = element_line(size=0.5, colour = "black"))
+#Save the combined variable boxplots page
+ggexport(allvarplots, filename = "Data/Visualize/boxplots/allvariables_trends_boxplots.png",
+          width = 1800, height = 1500)
 
-#Boxplot soybeans and small grains
-fill <- "#4271AE"
-lines <- "#1F3552"
-soygrainplot<-ggplot(agdata, aes(x=factor(Year), y=soysmallgrain_planted)) + 
-  geom_boxplot(colour=lines, fill=fill, size=1, notch=TRUE)+
-  scale_y_continuous(name="Prop. Cropland Soybeans & Small Grains",
-                     breaks = seq(0, 1, 0.2),
-                     limits=c(0, 1))+
-  scale_x_discrete(name="Year")+
-  theme_light()+
-  theme(panel.grid.major = element_line(colour = "#d3d3d3"),
-        panel.grid.minor = element_blank(),
-        axis.text=element_text(colour="black", size = 12),
-        axis.line = element_line(size=0.5, colour = "black"))
+```
 
-#Boxplot corn
-fill <- "#4271AE"
-lines <- "#1F3552"
-cornplot<-ggplot(agdata, aes(x=factor(Year), y=corn_planted)) + 
-  geom_boxplot(colour=lines, fill=fill, size=1, notch=TRUE)+
-  scale_y_continuous(name="Prop. Cropland Corn",
-                     breaks = seq(0, 1, 0.2),
-                     limits=c(0, 1))+
-  scale_x_discrete(name="Year")+
-  theme_light()+
-  theme(panel.grid.major = element_line(colour = "#d3d3d3"),
-        panel.grid.minor = element_blank(),
-        axis.text=element_text(colour="black", size = 12),
-        axis.line = element_line(size=0.5, colour = "black"))
 
-#Boxplot fruit and veg
-fill <- "#4271AE"
-lines <- "#1F3552"
-fruitvegplot<-ggplot(agdata, aes(x=factor(Year), y=fruitveg_planted)) + 
-  geom_boxplot(colour=lines, fill=fill, size=1, notch=TRUE)+
-  scale_y_continuous(name="Prop. Cropland Fruit & Vegetables",
-                     breaks = seq(0, 1, 0.2))+
-  scale_x_discrete(name="Year")+
-  theme_light()+
-  theme(panel.grid.major = element_line(colour = "#d3d3d3"),
-        panel.grid.minor = element_blank(),
-        axis.text=element_text(colour="black", size = 12),
-        axis.line = element_line(size=0.5, colour = "black"))
+### Create simple geompoint graph of coefficients 
 
-#Boxplot income
-fill <- "#4271AE"
-lines <- "#1F3552"
-incomeplot<-ggplot(agdata, aes(x=factor(Year), y=income_planted)) + 
-  geom_boxplot(colour=lines, fill=fill, size=1, notch=TRUE)+
-  scale_y_continuous(name="Prop. Income to Planted Cropland")+
-  scale_x_discrete(name="Year")+
-  theme_light()+
-  theme(panel.grid.major = element_line(colour = "#d3d3d3"),
-        panel.grid.minor = element_blank(),
-        axis.text=element_text(colour="black", size = 12),
-        axis.line = element_line(size=0.5, colour = "black"))
+```{r point, message=F, warning=F}
 
-#Boxplot large farms
-fill <- "#4271AE"
-lines <- "#1F3552"
-farmplot<-ggplot(agdata, aes(x=factor(Year), y=largefarm_planted)) + 
-  geom_boxplot(colour=lines, fill=fill, size=1, notch=TRUE)+
-  scale_y_continuous(name="Prop. Large Farms to Planted Cropland")+
-  scale_x_discrete(name="Year")+
-  theme_light()+
-  theme(panel.grid.major = element_line(colour = "#d3d3d3"),
-        panel.grid.minor = element_blank(),
-        axis.text=element_text(colour="black", size = 12),
-        axis.line = element_line(size=0.5, colour = "black"))
+library(reshape2)#wide to long dataframes
+library(stringr)#String detection
 
-#Boxplot irrigate
-fill <- "#4271AE"
-lines <- "#1F3552"
-irrigateplot<-ggplot(agdata, aes(x=factor(Year), y=irrigate_planted)) + 
-  geom_boxplot(colour=lines, fill=fill, size=1, notch=TRUE)+
-  scale_y_continuous(name="Prop. Irrigated Area to Planted Cropland")+
-  scale_x_discrete(name="Year")+
-  theme_light()+
-  theme(panel.grid.major = element_line(colour = "#d3d3d3"),
-        panel.grid.minor = element_blank(),
-        axis.text=element_text(colour="black", size = 12),
-        axis.line = element_line(size=0.5, colour = "black"))
+cp_coef_long<-reshape2::melt(cp_coef_df, id.vars="variable")
+colnames(cp_coef_long)<-c("variable", "plm", "value")
 
-#Boxplot SDI
-fill <- "#4271AE"
-lines <- "#1F3552"
-SDIplot<-ggplot(agdata, aes(x=factor(Year), y=SDI)) + 
-  geom_boxplot(colour=lines, fill=fill, size=1, notch=TRUE)+
-  scale_y_continuous(name="Crop Diversity to Planted Cropland")+
-  scale_x_discrete(name="Year")+
-  theme_light()+
-  theme(panel.grid.major = element_line(colour = "#d3d3d3"),
-        panel.grid.minor = element_blank(),
-        axis.text=element_text(colour="black", size = 12),
-        axis.line = element_line(size=0.5, colour = "black"))
+cp_coef_twoways<-cp_coef_long %>%
+  dplyr::filter(stringr::str_detect(plm, "twoways"))
 
-#Arrange all the covariate boxplots together
+ggplot2::ggplot(cp_coef_twoways, aes(x=variable, y=value, color=plm))+
+  geom_point()
 
-#Save plots
-# ggsave("Z:/Sofie/Data/Regressions/boxplots/insectplot.png", insectplot)
-# ggsave("Z:/Sofie/Data/Regressions/boxplots/harvestplot.png", harvestplot)
-# ggsave("Z:/Sofie/Data/Regressions/boxplots/soygrainplot.png", soygrainplot)
-# ggsave("Z:/Sofie/Data/Regressions/boxplots/cornplot.png", cornplot)
-# ggsave("Z:/Sofie/Data/Regressions/boxplots/fruitvegplot.png", fruitvegplot)
-# ggsave("Z:/Sofie/Data/Regressions/boxplots/incomeplot.png", incomeplot)
-# ggsave("Z:/Sofie/Data/Regressions/boxplots/farmplot.png", farmplot)
-# ggsave("Z:/Sofie/Data/Regressions/boxplots/irrigateplot.png", irrigateplot)
-# ggsave("Z:/Sofie/Data/Regressions/boxplots/SDIplot.png", SDIplot)
-
-####################################################################################################################
 
 ```
 
 
 
-### Extra stuff from panel analysis script to deal with 
+### Create forest plots of the coefficients with their standard error across models
 
-```{r}
+Still working on this section
 
-#Move everything below to separate scripts
+Plot coefficient with SE for each variable for pooled county data, with diff colors for diff model types
+Plot coefficient with its SE for each ERS; and then different colors for different models types
 
-
-# ######################################################
-# #Boxplots
-# 
-# countytime_ERSmodels<-rbind(countytime_model_ERS_coef_df, countytime_model_CDL_ERS_coef_df,countytime_model_ERS_3yrs_coef_df,
-#                             countytime_model_ERS_3var_coef_df, countytime_model_CDL_ERS_3var_coef_df, countytime_model_ERS_3var_3yrs_coef_df)
-# 
-# fill <- "#4271AE"
-# lines <- "#1F3552"
-# 
-# ggplot(countytime_ERSmodels, aes(x=factor(ERS), y=Value))+
-#   geom_boxplot(colour=lines, fill=fill)+
-#   facet_wrap(~Coefficient)+
-#   labs(x="ERS", y="Coefficient")+
-#   theme_light()
-# ggsave("Z:/Sofie/Data/Regressions/countytime_ERSmodels_boxplots_fixedscales.png")
-# 
-# ggplot(countytime_ERSmodels, aes(x=factor(ERS), y=Value))+
-#   geom_boxplot(colour=lines, fill=fill, notch=TRUE)+
-#   facet_wrap(~Coefficient, scales="free")+
-#   labs(x="ERS", y="Coefficient")+
-#   theme_light()
-# ggsave("Z:/Sofie/Data/Regressions/countytime_ERSmodels_boxplots_freescales.png")
-# 
-# #View(countytime_ERSmodels)
-
-# ############################################################################################################
-# #How correlated is SDI with proportion fruits and veggies
-# ############################################################################################################
-# #Website for correlation matrices: http://www.sthda.com/english/wiki/correlation-matrix-a-quick-start-guide-to-analyze-format-and-visualize-a-correlation-matrix-using-r-software
-# cordata<-fulldata %>%
-#   select(insect_planted, harv_county, soysmallgrain_planted, corn_planted, fruitveg_planted, 
-#            income_planted, largefarm_planted, irrigate_planted, SDI)
-# cordata<-na.omit(cordata)
-# 
-# correlate <- cor(cordata)
-# correlate
-# round(correlate,2)
-# 
-# library(Hmisc)
-# corrsig <- rcorr(as.matrix(cordata))
-# corrsig
-# 
-# flattenCorrMatrix <- function(cormat, pmat) {
-#   ut <- upper.tri(cormat)
-#   data.frame(
-#     row = rownames(cormat)[row(cormat)[ut]],
-#     column = rownames(cormat)[col(cormat)[ut]],
-#     cor  =(cormat)[ut],
-#     p = pmat[ut]
-#   )
-# }
-# corrmat<-flattenCorrMatrix(corrsig$r, corrsig$P) %>% 
-#   arrange(cor)
-# 
-# #symnum(correlate, abbr.colnames = FALSE)
-# 
-# library(corrplot)
-# corrplot(correlate, type = "upper", order = "hclust", 
-#          tl.col = "black", tl.srt = 45)
-# # Insignificant correlations are leaved blank
-# corrplot(corrsig$r, type="upper", order="hclust", 
-#          p.mat = corrsig$P, sig.level = 0.01, insig = "blank")
-# 
-# library(PerformanceAnalytics)
-# chart.Correlation(cordata, histogram=TRUE, pch=19)
-# 
-# col<- colorRampPalette(c("blue", "white", "red"))(20)
-# heatmap(x = correlate, col = col, symm = TRUE)
+```{r forestplot, message=F, warning=F}
 
 
+#Create lower and upper values
+cpnames <- names(cp_coef_df)[-1]
+cp_lower_df<-cbind(cp_coef_df[1], cp_coef_df[cpnames] - cp_se_df[match(cp_coef_df$variable, cp_se_df$variable), cpnames])
+cp_upper_df<-cbind(cp_coef_df[1], cp_coef_df[cpnames] + cp_se_df[match(cp_coef_df$variable, cp_se_df$variable), cpnames])
 
-# ###############
-# #Xtsum- within variation remaining
-# ###############
-# 
-# #Figure out what wanted from Xt sum and then how to do it
-# 
-# xtsumR<-function(df,columns,individuals){
-#   df<-dplyr::arrange(df,individuals)
-#   panel<-tibble::tibble()
-#   for (i in columns){
-#     v<-df %>% dplyr::group_by_() %>%
-#       dplyr::summarize_(
-#         mean=mean(df[[i]]),
-#         sd=sd(df[[i]]),
-#         min=min(df[[i]]),
-#         max=max(df[[i]])
-#       )
-#     v<-tibble::add_column(v,variacao="overal",.before=-1)
-#     v2<-aggregate(df[[i]],list(df[[individuals]]),"mean")[[2]]
-#     sdB<-sd(v2)
-#     varW<-df[[i]]-rep(v2,each=12) #
-#     varW<-varW+mean(df[[i]])
-#     sdW<-sd(varW)
-#     minB<-min(v2)
-#     maxB<-max(v2)
-#     minW<-min(varW)
-#     maxW<-max(varW)
-#     v<-rbind(v,c("between",NA,sdB,minB,maxB),c("within",NA,sdW,minW,maxW))
-#     panel<-rbind(panel,v)
-#   }
-#   var<-rep(names(df)[columns])
-#   n1<-rep(NA,length(columns))
-#   n2<-rep(NA,length(columns))
-#   var<-c(rbind(var,n1,n1))
-#   panel$var<-var
-#   panel<-panel[c(6,1:5)]
-#   names(panel)<-c("variable","variation","mean","standard.deviation","min","max")
-#   panel[3:6]<-as.numeric(unlist(panel[3:6]))
-#   panel[3:6]<-round(unlist(panel[3:6]),2)
-#   return(panel)
-# }
-# 
-# xtsumdata<-fulldata %>%
-#   mutate(FIPSYear=paste0(FIPS,Year)) %>% 
-#   select(FIPSYear, insect_planted, harv_county, soysmallgrain_planted, corn_planted, fruitveg_planted, 
-#          income_planted, largefarm_planted, irrigate_planted, SDI)
-# #cordata<-na.omit(cordata)
-# xtsumR(df=xtsumdata, columns=xtsumdata$insect_planted, individuals=xtsumdata$FIPSYear)
-# 
-# 
-# 
-# df<-dplyr::arrange(xtsumdata,xtsumdata$FIPSYear)
-# panel<-tibble::tibble()
-# for (i in columns){
-#   v<-df %>% dplyr::group_by() %>%
-#     dplyr::summarize(
-#       mean=mean(df[[i]]),
-#       sd=sd(df[[i]]),
-#       min=min(df[[i]]),
-#       max=max(df[[i]])
-#     )
-#   v<-tibble::add_column(v,variacao="overal",.before=-1)
-#   v2<-aggregate(df[[i]],list(df[[individuals]]),"mean")[[2]]
-#   sdB<-sd(v2)
-#   varW<-df[[i]]-rep(v2,each=12) #
-#   varW<-varW+mean(df[[i]])
-#   sdW<-sd(varW)
-#   minB<-min(v2)
-#   maxB<-max(v2)
-#   minW<-min(varW)
-#   maxW<-max(varW)
-#   v<-rbind(v,c("between",NA,sdB,minB,maxB),c("within",NA,sdW,minW,maxW))
-#   panel<-rbind(panel,v)
-# }
-# var<-rep(names(df)[columns])
-# n1<-rep(NA,length(columns))
-# n2<-rep(NA,length(columns))
-# var<-c(rbind(var,n1,n1))
-# panel$var<-var
-# panel<-panel[c(6,1:5)]
-# names(panel)<-c("variable","variation","mean","standard.deviation","min","max")
-# panel[3:6]<-as.numeric(unlist(panel[3:6]))
-# panel[3:6]<-round(unlist(panel[3:6]),2)
-# return(panel)
+
+tabletext <- cp_coef_df[,1]
+fplot<-forestplot(tabletext,
+           mean = cbind(cp_coef_df[, 2], cp_coef_df[, 3]),
+           lower = cbind(cp_lower_df[, 2], cp_lower_df[, 3]),
+           upper = cbind(cp_upper_df[, 2], cp_upper_df[, 3]))
 
 
 ```
 
+
+### Tables of Final Models
+
+For example:
+
+```{r stargazer, message=F, warning=F}
+
+panel_models_CDL_ERS_3var<-stargazer(countytime_model_CDL_ag1_3var, countytime_model_CDL_ag2_3var, countytime_model_CDL_ag3_3var, 
+                                     countytime_model_CDL_ag4_3var, countytime_model_CDL_ag5_3var, countytime_model_CDL_ag6_3var, 
+                                     countytime_model_CDL_ag7_3var, countytime_model_CDL_ag8_3var, countytime_model_CDL_ag9_3var,
+                                     type = "text", column.labels = c("Heartland", "Northern Crescent", "Northern Great Plains",
+                                                                      "Prairie Gateway", "Eastern Uplands", "Southern Seaboard",
+                                                                      "Fruitful Rim", "Basin and Range", "Mississippi Portal"),
+                                     out="Z:/Sofie/Data/Regressions/panel_models_CDL_EDS_3var.txt") 
+
+
+```
+
+
+
+*Add in stargazer script for models chosen to feature (after final models selected, can call desired models by loading RDA list)

@@ -180,6 +180,9 @@ fulldata<-fulldata %>%
   
 #Replace infinite values with NA for regression 
   fulldata$cropintensity[sapply(fulldata$cropintensity, is.infinite)]<-NA
+  
+#Remove rows with NA value for year
+  fulldata<-fulldata[!is.na(fulldata$Year),]
     
 #Write fulldata to df folder be used in regression analyses
     write_csv(fulldata, "Data/DataProcessing/df/fulldata.csv")
