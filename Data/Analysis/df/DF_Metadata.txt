@@ -1,16 +1,6 @@
-Column names defined for csvs detailed the coef, pval, se, and vif information for the regressions, created by the Analysis.Rmd.
+This folder contains the model statistic results of the Analysis.Rmd.
 
-The coef csv represents the model coefficients, the pval csv represents the model p-values per coefficient, 
-the se csv represent the model standard error values per coefficient, and the vif csv represent the variable
-inflation factor (multicollinearity between variables) for each model. 
+The cp folder contains the counties pooled (cp) model results, while the ERS folder contains
+	the farm resource region ERS model results. 
 
-The corr.Rda files give the correlation values between each of the variables used in the regression models.
-
-For all four dataframes the first column gives the variable name being considered, while all other columns give either
-the coefficient, p-value, standard error, or vif for each model. Therefore, the rest of the column names are the specific name
-of the model being considered.
-
-The counties pooled (cp) models have combined dataframes as all counties are considered, 
-while the ERS models have each of these four dataframes available under separate ERS folders 
-(given the ERS code number) as well as having all the information combined into an "all" dataframe,
-that contains a column giving the ERS code. 
+Further explanations and metadata are available under each folder. 

@@ -53,8 +53,9 @@ library(stats) #For as.formula function
 library(car) # For calculating variance inflation factors (vif)
 library(rlang) #For xtsum function creation
 library(gdata) #For combine in xtsum function
-library(ggplot2) #Data visualization
-library(stargazer)#Regression and summary statistics tables
+library(broom) #Convert statistical analysis into df
+library(reshape2)#For wide to long data format
+library(clubSandwich) #for coeftest (cluster robust standard errors)
 
 #Set options
 options(scipen=999) #no scientific notation (all)
@@ -131,74 +132,11 @@ load("Data/Analysis/models/CP/cpmodels_crops_pooling.Rda") #Pooling model for st
 
 #### Create dataframe of important model information from each model
 
-https://cran.r-project.org/web/packages/broom/vignettes/broom.html
-Use broom package to grab all 
+Using clubsandwih package to perform cluster-robust standard errors in tidy format.
+For more information: https://cran.r-project.org/web/packages/clubSandwich/vignettes/panel-data-CRVE.html
 
-```{r}
-
-library(broom)
-#Combine within and pooling lists of models together to perform analyses
-cpmodelswithin<-c(cpmodels_within, cpmodels_crops_within)
-cpmodelspooling<-c(cpmodels_pooling, cpmodels_crops_pooling)
-
-#Example model
-exmodl<-cpmodelswithin[[1]]
-
-broom::tidy(exmodl)
-broom::augment(exmodl)
-broom::glance(exmodl)
-
-cp_df<- cpmodelswithin[[1]] %>% 
-    broom::tidy() %>%
-    #by_2sd(mtcars) %>% #If need to rescale regression results for comparison?
-    dplyr::mutate(model = "Model 1")
-
-for (i in 2:length(cpmodelswithin)){
-  cp_model<-cpmodelswithin[[i]]
-  cp_df<-rbind(cp_df, cp_model %>% 
-                 broom::tidy() %>% 
-                 #by_2sd(mtcars) %>% #If need to rescale regression results for comparison?
-                 mutate(model=paste("Model", i)))
-}
-
-#figure out way to rename models by giving it the list name it is on
-
-
-#Including rest of script although this would be saved and brought in visualization
-# Relabel predictors (they will appear as facet labels) (come back to this)
-# cp_df <- cp_df %>% 
-#   relabel_predictors(c("(Intercept)" = "Intercept",
-#                      wt = "Weight",
-#                      cyl = "Cylinders",
-#                      disp = "Displacement",
-#                      hp = "Horsepower",
-#                      gear = "Gears",
-#                      am = "Manual"))
- 
-# Generate a 'small multiple' plot
-library(dotwhisker)
-dotwhisker::small_multiple(cp_df) +
-  theme_bw() + ylab("Coefficient Estimate") +
-  geom_hline(yintercept = 0, colour = "grey60", linetype = 2) +
-  ggtitle("Predicting Mileage") +
-  theme(plot.title = element_text(face = "bold"), 
-        legend.position = "none",
-        axis.text.x = element_text(angle = 60, hjust = 1)) 
-
-#https://cran.r-project.org/web/packages/dotwhisker/vignettes/dotwhisker-vignette.html
-#Use source above to figure out grouping by twoways, individual, and fixed?
-
-#Also figure out way to save these dataframes and to perfrom vif and correlation on these dataframes as well and save
-#Then get rid of below stuff (send to myself to have it saved somewhere- or move it onto personal computer)
-
-
-```
-
-
-
-
-Say something about this way can give you a really good comparison across
-TAKE FROM BELOW CERTAIN PARTS
+Otherwise, use broom package to put plm model informatino into tidy dataframe format. 
+For more information: https://cran.r-project.org/web/packages/broom/vignettes/broom.html
 
 ```{r cp_df, message=F, warning=F}
 
@@ -206,22 +144,46 @@ TAKE FROM BELOW CERTAIN PARTS
 cpmodelswithin<-c(cpmodels_within, cpmodels_crops_within)
 cpmodelspooling<-c(cpmodels_pooling, cpmodels_crops_pooling)
 
-#Create dataframe of coefficients from each model (using within)
-cp_coef_df<- lapply(cpmodelswithin,function(l){rownames_to_column(as.data.frame(l$coefficient), "variable")})%>%
-  purrr::reduce(full_join, by = "variable") %>%
-  setNames(c("variable", names(cpmodelswithin)))
 
-#Create dataframe of standard error from each model (using within)
-cp_se_df<- lapply(cpmodelswithin, function(l){rownames_to_column(as.data.frame(summary(l)$coefficients[,2]),"variable")}) %>%
-  purrr::reduce(full_join, by = "variable") %>%
-  setNames(c("variable", names(cpmodelswithin))) %>%
-   mutate_if(is.numeric, round, digits=8)
+#Broom package used to put plm model information into tidy dataframe format- was using before using coef_test (check which correct)
+  #tidy(): cofficients, augment(): residuals, glance(): model statistic values
 
-#Create dataframe of p-values from each model (using within)
-cp_pval_df<- lapply(cpmodelswithin, function(l){rownames_to_column(as.data.frame(summary(l)$coefficients[,4]),"variable")}) %>%
-  purrr::reduce(full_join, by = "variable") %>%
-  setNames(c("variable", names(cpmodelswithin))) %>%
-   mutate_if(is.numeric, round, digits=5)
+#Create cp_df for coefficient dataframe
+cp_df<- cpmodelswithin[[1]] %>%
+    broom::tidy() %>%
+    #by_2sd(mtcars) %>% #If need to rescale regression results for comparison?
+    dplyr::mutate(model = names(cpmodelswithin)[[1]])
+
+#Fill dataframe with model results
+for (i in 2:length(cpmodelswithin)){
+  cp_model<-cpmodelswithin[[i]]
+  cp_df<-rbind(cp_df, cp_model %>%
+                 broom::tidy() %>%
+                 #by_2sd(mtcars) %>% #If need to rescale regression results for comparison?
+                 mutate(model=names(cpmodelswithin)[[i]]))
+} #end for loop of model dataframe
+
+  #Calculating cluster-robust standard errors, using Satterthwaite (default)
+# result1<-coef_test(ex1, vcov = "CR1", cluster = "individual", test = "naive-t")
+# result2<-coef_test(ex1, vcov = "CR2", cluster = "individual", test = "Satterthwaite")
+
+#Create cp_df for coefficient dataframe with cluster robust testing, eventually possibly change to Satterthwaite
+cp_df_coef<- cpmodelswithin[[1]] %>% 
+    clubSandwich::coef_test(vcov = "CR1", cluster = "individual", test = "naive") %>% 
+    tibble::rownames_to_column(var = "term") %>% 
+    rename(estimate=beta, std.error=SE, statistic=tstat, p.value=p_t) %>% 
+    dplyr::mutate(model=names(cpmodelswithin)[[1]])
+
+#Fill dataframe with model results
+for (i in 2:length(cpmodelswithin)){
+  cp_model<-cpmodelswithin[[i]]
+  cp_df_coef<-rbind(cp_df_coef, cp_model %>%
+                clubSandwich::coef_test(vcov = "CR1", cluster = "individual", test = "naive") %>% 
+                tibble::rownames_to_column(var = "term") %>% 
+                rename(estimate=beta, std.error=SE, statistic=tstat, p.value=p_t) %>% 
+                dplyr::mutate(model=names(cpmodelswithin)[[i]])
+               )#end rbind
+} #end for loop of model dataframe
 
 #Run variance inflation factor (vif) to look at multicollinearity between variables and look at correlation matrices
   #Can only run on model=pooling for plm
@@ -229,17 +191,18 @@ cp_pval_df<- lapply(cpmodelswithin, function(l){rownames_to_column(as.data.frame
     #VIF of 1=no correlation among predictors, >4 investigate, >10 serious correction
 
   #VIF on pooled data
-  cp_vif<-lapply(cpmodelspooling, function(p){rownames_to_column(as.data.frame(car::vif(p)), "variable")}) %>%
-    purrr::reduce(full_join, by = "variable") %>%
-    setNames(c("variable", names(cpmodelspooling)))
+  cp_vif<-lapply(cpmodelspooling, function(p){rownames_to_column(as.data.frame(car::vif(p)), "term")}) %>%
+    purrr::reduce(full_join, by = "term") %>%
+    setNames(c("term", names(cpmodelspooling))) %>% 
+    reshape2::melt(id.vars="term")
+  colnames(cp_vif)<-c("term", "model", "vif")
 
   #Correlation matrix on within data
   cp_corr<-lapply(cpmodelswithin, function(v){cov2cor(v$vcov)})
-
+  
 #Write csv for each of the created dataframes and rda for the correlation matrix list (save under Data/Analysis/df/CP)
-  write_csv(cp_coef_df, "Data/Analysis/df/CP/cp_coef_df.csv")
-  write_csv(cp_se_df, "Data/Analysis/df/CP/cp_se_df.csv")
-  write_csv(cp_pval_df, "Data/Analysis/df/CP/cp_pval_df.csv")
+  write_csv(cp_df, "Data/Analysis/df/CP/cp_df.csv")
+  write_csv(cp_df_coef, "Data/Analysis/df/CP/cp_df_coef.csv") # No metadata yet
   write_csv(cp_vif, "Data/Analysis/df/CP/cp_vif.csv")
   save(cp_corr, file="Data/Analysis/df/CP/cp_corr.Rda")
 
@@ -263,10 +226,12 @@ The ERS zones are:
  
 #### Run panel regressions and save outputs as list of models in RDA format to be iterated through
 
-```{r ERSmodels, message=FALSE, warning=FALSE}
+Figure out if printing code with include=FALSE, otherwise other way to include source without messages popping up.
+
+```{r ERSmodels, message=FALSE, warning=FALSE, include=FALSE}
 
 #Script runs the ERS (cp) regression models subset by ERS and creates .Rda file of list of plm models (edit models in R script)
-source("R/Analysis/ERSmodels.R") 
+source("R/Analysis/ERSmodels.R")
 #Takes a few minutes to run both within and pooling models for all ERS separately
   #Separated out crop covariate models so that rda files were not too large for github
 
@@ -288,27 +253,25 @@ ERS<-1:9 #9 ERS Regions (defined in Markdown)
     #Combine within and pooling lists of models together to perform analyses
     ERSmodelswithin<-c(ERSmodels_within, ERSmodels_crops_within)
     ERSmodelspooling<-c(ERSmodels_pooling, ERSmodels_crops_pooling)
+    
+    #Broom package used to put plm model information into tidy dataframe format
+      #tidy(): cofficients, augment(): residuals, glance(): model statistic values
 
-    #Create dataframe of coefficients from each model (using within)
-    ERS_coef_df<- lapply(ERSmodelswithin,function(l){rownames_to_column(as.data.frame(l$coefficient), "variable")})%>%
-      purrr::reduce(full_join, by = "variable") %>%
-      setNames(c("variable", names(ERSmodelswithin))) %>%
-      mutate(ERS=e) %>%  #Add column for ERS code
-      select(variable, ERS, everything()) #move predictor variable and ERS code to the beginning
-
-    #Create dataframe of standard error from each model (using within)
-    ERS_se_df<- lapply(ERSmodelswithin, function(l){rownames_to_column(as.data.frame(summary(l)$coefficients[,2]),"variable")})        %>% purrr::reduce(full_join, by = "variable") %>%
-        setNames(c("variable", names(ERSmodelswithin))) %>%
-        mutate_if(is.numeric, round, digits=8) %>%
-        mutate(ERS=e) %>%  #Add column for ERS code
-        select(variable, ERS, everything()) #move predictor variable and ERS code to the beginning
-
-    #Create dataframe of p-values from each model (using within)
-    ERS_pval_df<- lapply(ERSmodelswithin, function(l){rownames_to_column(as.data.frame(summary(l)$coefficients[,4]),"variable")})      %>% purrr::reduce(full_join, by = "variable") %>%
-        setNames(c("variable", names(ERSmodelswithin))) %>%
-        mutate_if(is.numeric, round, digits=5) %>%
-        mutate(ERS=e) %>%  #Add column for ERS code
-        select(variable, ERS, everything()) #move predictor variable and ERS code to the beginning
+    #Create ERS_df for coefficient dataframe 
+    ERS_df<- ERSmodelswithin[[1]] %>% 
+        broom::tidy() %>%
+        dplyr::mutate(model = names(ERSmodelswithin)[[1]]) %>% 
+        dplyr::mutate(ERS=e)  #Add column for ERS code
+    
+    #Fill dataframe with model results
+    for (i in 2:length(ERSmodelswithin)){
+      ERS_model<-ERSmodelswithin[[i]]
+      ERS_df<-rbind(ERS_df, ERS_model %>% 
+                     broom::tidy() %>% 
+                     mutate(model=names(ERSmodelswithin)[[i]]) %>% 
+                     mutate(ERS=e)) #Add column for ERS code
+                     
+    } #end for loop of model dataframe
 
     #Run variance inflation factor (vif) to look at multicollinearity between variables and look at correlation matrices
       #Can only run on model=pooling for plm
@@ -316,48 +279,35 @@ ERS<-1:9 #9 ERS Regions (defined in Markdown)
         #VIF of 1=no correlation among predictors, >4 investigate, >10 serious correction
 
       #VIF on pooled data
-      ERS_vif<-lapply(ERSmodelspooling, function(p){rownames_to_column(as.data.frame(car::vif(p)), "variable")}) %>%
-        purrr::reduce(full_join, by = "variable") %>%
-        setNames(c("variable", names(ERSmodelspooling))) %>%
-        mutate(ERS=e) %>%  #Add column for ERS code
-        select(variable, ERS, everything()) #move predictor variable and ERS code to the beginning
+      ERS_vif<-lapply(ERSmodelspooling, function(p){rownames_to_column(as.data.frame(car::vif(p)), "term")}) %>%
+        purrr::reduce(full_join, by = "term") %>%
+        setNames(c("term", names(ERSmodelspooling))) %>%
+        reshape2::melt(id.vars="term") %>% 
+        mutate(ERS=e) #Add column for ERS code
+      colnames(ERS_vif)<-c("term", "model", "vif", "ERS")
 
       #Correlation matrix on within data
       ERS_corr<-lapply(ERSmodelswithin, function(v){cov2cor(v$vcov)}) #will save in correct folder but not combine across ERS
 
     #Write csv for each of the created dataframes and rda for the correlation matrix list (save under Data/Analysis/df/ERS)
-      write_csv(ERS_coef_df, paste0("Data/Analysis/df/ERS/", e ,"/ERS_coef_df.csv"))
-      write_csv(ERS_se_df, paste0("Data/Analysis/df/ERS/", e ,"/ERS_se_df.csv"))
-      write_csv(ERS_pval_df, paste0("Data/Analysis/df/ERS/", e ,"/ERS_pval_df.csv"))
+      write_csv(ERS_df, paste0("Data/Analysis/df/ERS/", e ,"/ERS_df.csv"))
       write_csv(ERS_vif, paste0("Data/Analysis/df/ERS/", e ,"/ERS_vif.csv"))
       save(ERS_corr, file=paste0("Data/Analysis/df/ERS/", e ,"/ERS_corr.Rda"))
   }
 
-#Read in the dataframe for each ERS and rbind to create combined dataframe (coefficients, pvals, and vif)
-  #ERS_coef_df
-    coef_files <- list.files(pattern='ERS_coef_df.csv', recursive=TRUE, full.names = TRUE)
-    ERS_coef_all <- do.call(rbind , lapply(coef_files, readr::read_csv)) %>%
-      dplyr::arrange(variable) #order by variable so ERS together
-
-   #ERS_se_df
-    se_files <- list.files(pattern='ERS_se_df.csv', recursive=TRUE, full.names = TRUE)
-    ERS_se_all <- do.call(rbind , lapply(se_files, readr::read_csv)) %>%
-      dplyr::arrange(variable) #order by variable so ERS together
-
-  #ERS_pval_df
-    pval_files <- list.files(pattern='ERS_pval_df.csv', recursive=TRUE, full.names = TRUE)
-    ERS_pval_all <- do.call(rbind , lapply(pval_files, readr::read_csv)) %>%
-      dplyr::arrange(variable) #order by variable so ERS together
+#Read in the dataframe for each ERS and rbind to create combined dataframe
+  #ERS_all
+    coef_files <- list.files(pattern='ERS_df.csv', recursive=TRUE, full.names = TRUE)
+    ERS_all <- do.call(rbind , lapply(coef_files, readr::read_csv)) %>%
+      dplyr::arrange(term) #order by variable so ERS together
 
   #ERS_vif
     vif_files <- list.files(pattern='ERS_vif.csv', recursive=TRUE, full.names = TRUE)
     ERS_vif_all <- do.call(rbind , lapply(vif_files, readr::read_csv)) %>%
-      dplyr::arrange(variable) #order by variable so ERS together
+      dplyr::arrange(term) #order by term so ERS together
 
 #Write combined df to csv files under Data/Analysis/df/ERS as all files
-  write_csv(ERS_coef_all, "Data/Analysis/df/ERS/ERS_coef_all.csv")
-  write_csv(ERS_se_all, "Data/Analysis/df/ERS/ERS_se_all.csv")
-  write_csv(ERS_pval_all, "Data/Analysis/df/ERS/ERS_pval_all.csv")
+  write_csv(ERS_all, "Data/Analysis/df/ERS/ERS_all.csv")
   write_csv(ERS_vif_all, "Data/Analysis/df/ERS/ERS_vif_all.csv")
 
 ```

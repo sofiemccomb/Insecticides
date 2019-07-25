@@ -18,15 +18,16 @@ This R Markdown will be used to visualize the data and results developed from th
 #Load the needed packages (install first if necessary)
 library(ggplot2) #data visualization
 library(ggpubr)#To arrange ggplots on a page
-# library(tidyverse) #Datatable manipulation (all functions)
+library(stringr)#String detection
+library(tidyverse) #Datatable manipulation (all functions)
+library(dotwhisker) #Box and whisker plots
   # library(tools) #For file_path sans_ext (COA.R)
   # library(purrr) #For reduce function using full_join (COA.R)
   # library(zoo) #For na.locf function (COA.R)
   # library(janitor) #Clean colnames (CDL.R)
   # library(vegan) #Perform diversity calculation (CDL.R)
   # library(readxl) #read excel .xlsx (ERS data)
-
-
+library(forestplot)
 # library(stargazer)#regression and summary statistics tables
 # library(plm) #linear models for panel data
 # library(lmtest) #testing for linear regression models
@@ -34,13 +35,22 @@ library(ggpubr)#To arrange ggplots on a page
 #Set options
   #options(scipen=999) #no scientific notation (all)
 
+```
 
-library(forestplot)
-library(tidyverse)
+### Load Data
 
-#Load data for coefficient and se values
-cp_coef_df<-readr::read_csv("Data/Analysis/df/CP/cp_coef_df.csv")
-cp_se_df<- readr::read_csv ("Data/Analysis/df/CP/cp_se_df.csv")
+Data was cleaned up using the broom package. 
+More information on the package and the format of the data can be found at: 
+https://cran.r-project.org/web/packages/broom/vignettes/broom.html
+
+```{r data, message=FALSE, warning=FALSE}
+
+#Load data for cp and ERS df
+cp_df<-readr::read_csv("Data/Analysis/df/CP/cp_df.csv")
+ERS_df<- readr::read_csv ("Data/Analysis/df/ERS/ERS_all.csv")
+
+#Load fulldata
+load("Data/DataProcessing/df/fulldata.rda")
 
 ```
 
@@ -83,71 +93,177 @@ ggexport(allvarplots, filename = "Data/Visualize/boxplots/allvariables_trends_bo
 ```
 
 
-### Create simple geompoint graph of coefficients 
+### Filter out models by fixed groups
 
-```{r point, message=F, warning=F}
+```{r groups, message=F, warning=F}
 
-library(reshape2)#wide to long dataframes
-library(stringr)#String detection
-
-cp_coef_long<-reshape2::melt(cp_coef_df, id.vars="variable")
-colnames(cp_coef_long)<-c("variable", "plm", "value")
-
-cp_coef_twoways<-cp_coef_long %>%
-  dplyr::filter(stringr::str_detect(plm, "twoways"))
-
-ggplot2::ggplot(cp_coef_twoways, aes(x=variable, y=value, color=plm))+
-  geom_point()
+#Find ways to filter out by fixed groups (separate model into columns by _)
+cp_twoways<-cp_df%>%
+  dplyr::filter(stringr::str_detect(model, "twoways"))
 
 
 ```
 
 
+#Box and Whisker Plots
 
-### Create forest plots of the coefficients with their standard error across models
+Create box and whisker plots of the model coefficients useing the dotwhisker package.
 
-Still working on this section
+```{r}
 
-Plot coefficient with SE for each variable for pooled county data, with diff colors for diff model types
-Plot coefficient with its SE for each ERS; and then different colors for different models types
+#Create box and whisker plots
 
-```{r forestplot, message=F, warning=F}
+#CP
+#Relabel predictors
+cp_plot_df <- cp_df %>%
+  relabel_predictors(c(pland_crops = "% Crop",
+                     cropintensity = "Crop Intensity",
+                     msidi = "Land Diversity",
+                     mna_crops = "Avg. Crop Area",
+                     largefarm_planted = "Large Farm",
+                     te_shared_c_nc = "Natural-Crop Edge",
+                     SDI= "Crop Diversity",
+                     soysmallgrain_planted= "Soy & Grains",
+                     corn_planted= "Corn",
+                     fruitveg_planted= "Fruit & Veg"))
+
+#Can simply using dwplot function to create boxwhisker plot
+cp_plot1<-dotwhisker::dwplot(cp_plot_df,
+                             dot_args = list(size = 2),
+                            whisker_args = list(size = 0.5))+
+   theme_bw() + xlab("Coefficient Estimate") + ylab("") +
+     geom_vline(xintercept = 0, colour = "grey60", linetype = 2) +
+     ggtitle("Coefficient Comparison for Counties Pooled") +
+     theme(plot.title = element_text(face="bold", size=20),
+           legend.title = element_blank(),
+           legend.text = element_text(size=16),
+           axis.text=element_text(size=14),
+           axis.title = element_text(size=16))
+
+ggexport(cp_plot1, filename = "Data/Visualize/boxwhisker/cp_coeff_compare.png",
+          width = 1200, height = 800)
+ 
+#Generate a 'small multiple' plot of cp coefficients
+cp_plot2<-dotwhisker::small_multiple(cp_plot_df,
+                                     dot_args = list(size = 1.0),
+                                     whisker_args = list(size = 0.5)) +
+  theme_bw() + ylab("Coefficient Estimate") +
+  geom_hline(yintercept = 0, colour = "grey60", linetype = 2) +
+  ggtitle("Coefficient Comparison for Counties Pooled") +
+  theme(text = element_text(size = 14),
+        plot.title = element_text(face = "bold", size=20), 
+        legend.position = "none",
+        axis.text.x = element_text(angle = 60, hjust = 1),
+        axis.text=element_text(size=12),
+        axis.title = element_text(size=18)) 
+
+ggexport(cp_plot2, filename = "Data/Visualize/boxwhisker/cp_coeff_multicompare.png",
+          width = 2100, height = 1500)
 
 
-#Create lower and upper values
-cpnames <- names(cp_coef_df)[-1]
-cp_lower_df<-cbind(cp_coef_df[1], cp_coef_df[cpnames] - cp_se_df[match(cp_coef_df$variable, cp_se_df$variable), cpnames])
-cp_upper_df<-cbind(cp_coef_df[1], cp_coef_df[cpnames] + cp_se_df[match(cp_coef_df$variable, cp_se_df$variable), cpnames])
+
+#ERS
+#Relabel predictors
+ERS_plot_df <- ERS_df %>%
+  relabel_predictors(c(pland_crops = "% Crop",
+                     cropintensity = "Crop Intensity",
+                     msidi = "Land Diversity",
+                     mna_crops = "Avg. Crop Area",
+                     largefarm_planted = "Large Farm",
+                     te_shared_c_nc = "Natural-Crop Edge",
+                     SDI= "Crop Diversity",
+                     soysmallgrain_planted= "Soy & Grains",
+                     corn_planted= "Corn",
+                     fruitveg_planted= "Fruit & Veg"))
+
+#Create boxwhisker plot of all ERS models together
+ERS_plot1<-dotwhisker::dwplot(ERS_plot_df,
+                              dot_args = list(size = 1.4),
+                              whisker_args = list(size = 0.5))+
+     theme_bw() + xlab("Coefficient Estimate") + ylab("") +
+     geom_vline(xintercept = 0, colour = "grey60", linetype = 2) +
+     ggtitle("Coefficient Comparison for ERS") +
+     theme(plot.title = element_text(face="bold", size=20),
+           legend.title = element_blank(),
+           legend.text = element_text(size=16),
+           axis.text=element_text(size=14),
+           axis.title = element_text(size=16))
+
+ggexport(ERS_plot1, filename = "Data/Visualize/boxwhisker/ERS_coeff_compare.png",
+          width = 1200, height = 800)
 
 
-tabletext <- cp_coef_df[,1]
-fplot<-forestplot(tabletext,
-           mean = cbind(cp_coef_df[, 2], cp_coef_df[, 3]),
-           lower = cbind(cp_lower_df[, 2], cp_lower_df[, 3]),
-           upper = cbind(cp_upper_df[, 2], cp_upper_df[, 3]))
+#For some reason small_multiple and submodels do not work
+  #So will subset by ERS and send through small_multiple
+
+ERS<-1:9 #9 ERS Regions
+  for (e in ERS){
+    ERS_plot_df_subset<-subset(ERS_plot_df, ERS_plot_df$ERS==e)
+    
+    ERS_plot2<-dotwhisker::small_multiple(ERS_plot_df_subset,
+                                          dot_args = list(size = 1.0),
+                                          whisker_args = list(size = 0.5)) +
+      theme_bw() + ylab("Coefficient Estimate") +
+      geom_hline(yintercept = 0, colour = "grey60", linetype = 2) +
+      ggtitle("Coefficient Comparison for ERS") +
+      theme(text = element_text(size = 14),
+            plot.title = element_text(face = "bold", size=20), 
+            legend.position = "none",
+            axis.text.x = element_text(angle = 60, hjust = 1),
+            axis.text=element_text(size=12),
+            axis.title = element_text(size=18))  
+
+    ggexport(ERS_plot2, filename = paste0("Data/Visualize/boxwhisker/ERS_coeff_multicompare_ERS", e, ".png"),
+             width = 2100, height = 1500)
+    
+  }#End ERS Loop
+
+
+#Create boxwhisker plot where ERS column called model
+ERS_plot_df_byERS<-ERS_plot_df %>% 
+  rename(plm=model,
+         model=ERS)
+ERS_plot3<-dotwhisker::dwplot(ERS_plot_df_byERS,
+                              dot_args = list(size = 1.4),
+                              whisker_args = list(size = 0.5))+
+     theme_bw() + xlab("Coefficient Estimate") + ylab("") +
+     geom_vline(xintercept = 0, colour = "grey60", linetype = 2) +
+     ggtitle("Coefficient Comparison for ERS") +
+     theme(plot.title = element_text(face="bold", size=20),
+           legend.title = element_blank(),
+           legend.text = element_text(size=16),
+           axis.text=element_text(size=14),
+           axis.title = element_text(size=16)) 
+
+ggexport(ERS_plot3, filename = "Data/Visualize/boxwhisker/ERS_coeff_compare_byERS.png",
+             width = 1200, height = 800)
 
 
 ```
+
+
 
 
 
 ### Tables of Final Models
 
+Add to this section once final models are decided on. 
+Will load and select final models from rda files, and then put together in a stargazer table.
+Otherwise will just use kabletable on the created dataframes.
+
 For example:
 
 ```{r stargazer, message=F, warning=F}
 
-panel_models_CDL_ERS_3var<-stargazer(countytime_model_CDL_ag1_3var, countytime_model_CDL_ag2_3var, countytime_model_CDL_ag3_3var, 
-                                     countytime_model_CDL_ag4_3var, countytime_model_CDL_ag5_3var, countytime_model_CDL_ag6_3var, 
-                                     countytime_model_CDL_ag7_3var, countytime_model_CDL_ag8_3var, countytime_model_CDL_ag9_3var,
-                                     type = "text", column.labels = c("Heartland", "Northern Crescent", "Northern Great Plains",
-                                                                      "Prairie Gateway", "Eastern Uplands", "Southern Seaboard",
-                                                                      "Fruitful Rim", "Basin and Range", "Mississippi Portal"),
-                                     out="Z:/Sofie/Data/Regressions/panel_models_CDL_EDS_3var.txt") 
+
+# panel_models_CDL_ERS_3var<-stargazer(countytime_model_CDL_ag1_3var, countytime_model_CDL_ag2_3var, countytime_model_CDL_ag3_3var, 
+#                                      countytime_model_CDL_ag4_3var, countytime_model_CDL_ag5_3var, countytime_model_CDL_ag6_3var, 
+#                                      countytime_model_CDL_ag7_3var, countytime_model_CDL_ag8_3var, countytime_model_CDL_ag9_3var,
+#                                      type = "text", column.labels = c("Heartland", "Northern Crescent", "Northern Great Plains",
+#                                                                       "Prairie Gateway", "Eastern Uplands", "Southern Seaboard",
+#                                                                       "Fruitful Rim", "Basin and Range", "Mississippi Portal"),
+#                                      out="Z:/Sofie/Data/Regressions/panel_models_CDL_EDS_3var.txt") 
 
 
 ```
 
-
-
-*Add in stargazer script for models chosen to feature (after final models selected, can call desired models by loading RDA list)
