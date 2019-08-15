@@ -10,7 +10,7 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 
 
-This R markdown document will gather and process the data necessary to perform the panel analyses laid out under the Analysis.Rmd. The data sources necessary for the analysis include up-to-date data for the Census of Agriculture (COA), USDA National Agricultural Statistics Service (NASS) Cropland Data Layer (CDL), National Land Cover Database (NLCD), and USDA Farm Resource Regions (Economic Service Research: ERS). The necessary data from each dataset will be gathered and combined together to have a full dataset in which each row is a unique county Federal Information Processing Standards (FIPS) code (determined by TIGER 2018 county shapefiles) per year of analysis (1997, 2002, 2007, 2012, 2017) where data availble.
+This R markdown document will gather and process the data necessary to perform the panel analyses laid out under the Analysis.Rmd. The data sources necessary for the analysis include up-to-date data for the Census of Agriculture (COA), USDA National Agricultural Statistics Service (NASS) Cropland Data Layer (CDL), National Land Cover Database (NLCD), USDA Farm Resource Regions (Economic Service Research: ERS), and USDA Agricultural Statistic Districts (ASD). The necessary data from each dataset will be gathered and combined together to have a full dataset in which each row is a unique county Federal Information Processing Standards (FIPS) code (determined by TIGER 2018 county shapefiles) per year of analysis (1997, 2002, 2007, 2012, 2017) where data availble.
 
 The data to gather includes:  
 
@@ -22,7 +22,7 @@ The data to gather includes:
 3. NLCD
     * Patch/diversity metrics: Edge density, edge length, mean patch area, percentage of landscape, landscape diversity
 4. ERS Regions  
-
+5. ASD Regions  
 
 More detail for each dataset will be given below as the data for each dataset is gathered and processed. All final data processed from each source is available under the Data/DataProcessing/df folder as a csv. The dataframe of all combined sources is saved as fulldata, in both csv and rda format (to be loaded into future Analysis.Rmd). Metadata for each individual source final data as well as for fulldata is available in the df folder as separate txt files.
 
@@ -135,6 +135,20 @@ colnames(ERS)<-c("FIPS", "ERSCode", "ERSName")
 
 ```
 
+### 5) ASD
+
+The Agricultural Statistics Districts (ASD) are defined as "a contiguous group of counties having relatively similar agricultural characteristics". More information and the ESRI shapefile can be found at https://data.nal.usda.gov/dataset/nass-quick-stats/resource/5f1173c1-bcb4-4f88-aec0-3bbfee75657f. "The ASD's used by NASS usually divide each state into as many as nine Agricultural Statistics Districts to make data comparison easier. Each district is more homogeneous with respect to agriculture than the state as a whole."
+
+The crosswalk excel sheet loaded in below was provided by Ashley Larsen and was retrieved from the NASS website.
+
+```{r ASD, message=F, warning=F}
+
+#Read in ASD file, to be combined with the other data as is
+ASD<-readr::read_csv("Data/DataProcessing/ASD/ASD_County_Crosswalk.csv") %>% 
+  select(statecountyfips, StateASD)
+colnames(ASD)<-c("FIPS", "ASDCode")
+
+```
 
 
 ## Data Combination
@@ -153,9 +167,10 @@ nlcd<-readr::read_csv("Data/DataProcessing/df/nlcd.csv")
 fulldata<-list(coa, cdl, nlcd) %>% 
   reduce(full_join, by=c("FIPS", "Year"))
 
-#Merge with ERS by just FIPS
-fulldata<-list(fulldata, ERS) %>% 
+#Merge with ERS and ASD by just FIPS
+fulldata<-list(fulldata, ERS, ASD) %>% 
   reduce(full_join, by=c("FIPS"))
+
 
 #Drop the 9 VA counties 51515, 51530, 51580, 51595, 51600, 51610, 51678,51685, 51720 
   #that had NA in CDL and that are essentially within other counties
@@ -175,17 +190,22 @@ fulldata<-fulldata %>%
     #where crop land acreage is defined by percentage cropland (pland_crops) multiped by county area (countyarea)
     #Both acreages (harvcrop and countyarea) are from CoA and pland_crops is from the NLCD
 
+#Add in column for natural-crops edge density
+  #Have shared edge length between natural land and crops divided by county area (ag)
+
 fulldata<-fulldata %>% 
-  dplyr::mutate(cropintensity=harvcrop/((pland_crops/100)*countyarea))
-  
+  dplyr::mutate(cropintensity=harvcrop/((pland_crops/100)*countyarea)) %>% 
+  dplyr::mutate(natural_crops_ed=tel_naturalcrops_nc/(countyarea*0.4046856422))#meters shared edge per hectare county area
+
 #Replace infinite values with NA for regression 
   fulldata$cropintensity[sapply(fulldata$cropintensity, is.infinite)]<-NA
+  fulldata$natural_crops_ed[sapply(fulldata$natural_crops_ed, is.infinite)]<-NA
   
 #Remove rows with NA value for year
   fulldata<-fulldata[!is.na(fulldata$Year),]
     
-#Write fulldata to df folder be used in regression analyses
+#Write fulldata to df folder as all data pulled together
     write_csv(fulldata, "Data/DataProcessing/df/fulldata.csv")
     save(fulldata, file = "Data/DataProcessing/df/fulldata.rda")
-
+    
 ```

@@ -21,16 +21,8 @@ library(ggpubr)#To arrange ggplots on a page
 library(stringr)#String detection
 library(tidyverse) #Datatable manipulation (all functions)
 library(dotwhisker) #Box and whisker plots
-  # library(tools) #For file_path sans_ext (COA.R)
-  # library(purrr) #For reduce function using full_join (COA.R)
-  # library(zoo) #For na.locf function (COA.R)
-  # library(janitor) #Clean colnames (CDL.R)
-  # library(vegan) #Perform diversity calculation (CDL.R)
-  # library(readxl) #read excel .xlsx (ERS data)
 library(forestplot)
 # library(stargazer)#regression and summary statistics tables
-# library(plm) #linear models for panel data
-# library(lmtest) #testing for linear regression models
 
 #Set options
   #options(scipen=999) #no scientific notation (all)
@@ -39,15 +31,18 @@ library(forestplot)
 
 ### Load Data
 
-Data was cleaned up using the broom package. 
+Data was cleaned up using the broom package.
 More information on the package and the format of the data can be found at: 
 https://cran.r-project.org/web/packages/broom/vignettes/broom.html
 
+Using clubsandwih package to perform cluster-robust standard errors in tidy format.
+For more information: https://cran.r-project.org/web/packages/clubSandwich/vignettes/panel-data-CRVE.html
+
 ```{r data, message=FALSE, warning=FALSE}
 
-#Load data for cp and ERS df
-cp_df<-readr::read_csv("Data/Analysis/df/CP/cp_df.csv")
-ERS_df<- readr::read_csv ("Data/Analysis/df/ERS/ERS_all.csv")
+#Load data for cp and ERS df with cluster-robust standard errors
+cp_df_coef<-readr::read_csv("Data/Analysis/df/CP/cp_df_coeftest.csv")
+ERS_df_coef<- readr::read_csv ("Data/Analysis/df/ERS/ERS_df_coeftest.csv")
 
 #Load fulldata
 load("Data/DataProcessing/df/fulldata.rda")
@@ -93,18 +88,6 @@ ggexport(allvarplots, filename = "Data/Visualize/boxplots/allvariables_trends_bo
 ```
 
 
-### Filter out models by fixed groups
-
-```{r groups, message=F, warning=F}
-
-#Find ways to filter out by fixed groups (separate model into columns by _)
-cp_twoways<-cp_df%>%
-  dplyr::filter(stringr::str_detect(model, "twoways"))
-
-
-```
-
-
 #Box and Whisker Plots
 
 Create box and whisker plots of the model coefficients useing the dotwhisker package.
@@ -113,19 +96,21 @@ Create box and whisker plots of the model coefficients useing the dotwhisker pac
 
 #Create box and whisker plots
 
+#Using the twoways only for visualizations currently
+
 #CP
 #Relabel predictors
-cp_plot_df <- cp_df %>%
-  relabel_predictors(c(pland_crops = "% Crop",
-                     cropintensity = "Crop Intensity",
-                     msidi = "Land Diversity",
-                     mna_crops = "Avg. Crop Area",
-                     largefarm_planted = "Large Farm",
-                     te_shared_c_nc = "Natural-Crop Edge",
-                     SDI= "Crop Diversity",
-                     soysmallgrain_planted= "Soy & Grains",
-                     corn_planted= "Corn",
-                     fruitveg_planted= "Fruit & Veg"))
+cp_plot_df <- cp_df_coef %>%
+  relabel_predictors(c(PercentCrop = "Percent Crop",
+                     CropIntensity = "Crop Intensity",
+                     LandDiversity = "Land Diversity",
+                     MeanCropArea = "Avg. Crop Area",
+                     LargeFarms = "Large Farm",
+                     NaturalCropEdge = "Natural-Crop Edge",
+                     CropDiversity= "Crop Diversity",
+                     SoyGrains= "Soy & Grains",
+                     Corn= "Corn",
+                     FruitVeg= "Fruit & Veg"))
 
 #Can simply using dwplot function to create boxwhisker plot
 cp_plot1<-dotwhisker::dwplot(cp_plot_df,
@@ -140,7 +125,7 @@ cp_plot1<-dotwhisker::dwplot(cp_plot_df,
            axis.text=element_text(size=14),
            axis.title = element_text(size=16))
 
-ggexport(cp_plot1, filename = "Data/Visualize/boxwhisker/cp_coeff_compare.png",
+ggexport(cp_plot1, filename = "Data/Visualize/boxwhisker/cp_twoways_crse_compare.png",
           width = 1200, height = 800)
  
 #Generate a 'small multiple' plot of cp coefficients
@@ -157,24 +142,42 @@ cp_plot2<-dotwhisker::small_multiple(cp_plot_df,
         axis.text=element_text(size=12),
         axis.title = element_text(size=18)) 
 
-ggexport(cp_plot2, filename = "Data/Visualize/boxwhisker/cp_coeff_multicompare.png",
+ggexport(cp_plot2, filename = "Data/Visualize/boxwhisker/cp_twoways_crse_multicompare.png",
           width = 2100, height = 1500)
 
 
+#Plot ERS on x and coefficient for each model with SD facet by term
+library(ggplot2)
+CPcompare<-ggplot(cp_plot_df, aes(x = model, color=model)) +
+  geom_errorbar(aes(ymax = estimate + std.error, ymin = estimate - std.error),
+                position = "dodge")+
+   geom_hline(yintercept = 0, colour = "grey60", linetype = 2) +
+  theme_bw() + ylab("Coefficient Estimate")+ labs(color="Model")+xlab("")+
+  facet_wrap(~term)+
+  theme(text = element_text(size = 14),
+            axis.text.x=element_blank(),
+            axis.title = element_text(size=18),
+          strip.text.x = element_text(size = 16),
+            legend.title=element_text(size=18), 
+          legend.text=element_text(size=16))
+
+
+ggexport(CPcompare, filename = "Data/Visualize/boxwhisker/CPcompare.png",
+             width = 1500, height = 1200)
 
 #ERS
 #Relabel predictors
-ERS_plot_df <- ERS_df %>%
-  relabel_predictors(c(pland_crops = "% Crop",
-                     cropintensity = "Crop Intensity",
-                     msidi = "Land Diversity",
-                     mna_crops = "Avg. Crop Area",
-                     largefarm_planted = "Large Farm",
-                     te_shared_c_nc = "Natural-Crop Edge",
-                     SDI= "Crop Diversity",
-                     soysmallgrain_planted= "Soy & Grains",
-                     corn_planted= "Corn",
-                     fruitveg_planted= "Fruit & Veg"))
+ERS_plot_df <- ERS_df_coef %>%
+  relabel_predictors(c(PercentCrop = "% Crop",
+                     CropIntensity = "Crop Intensity",
+                     LandDiversity = "Land Diversity",
+                     MeanCropArea = "Avg. Crop Area",
+                     LargeFarms = "Large Farm",
+                     NaturalCropEdge = "Natural-Crop Edge",
+                     CropDiversity= "Crop Diversity",
+                     SoyGrains= "Soy & Grains",
+                     Corn= "Corn",
+                     FruitVeg= "Fruit & Veg"))
 
 #Create boxwhisker plot of all ERS models together
 ERS_plot1<-dotwhisker::dwplot(ERS_plot_df,
@@ -189,7 +192,7 @@ ERS_plot1<-dotwhisker::dwplot(ERS_plot_df,
            axis.text=element_text(size=14),
            axis.title = element_text(size=16))
 
-ggexport(ERS_plot1, filename = "Data/Visualize/boxwhisker/ERS_coeff_compare.png",
+ggexport(ERS_plot1, filename = "Data/Visualize/boxwhisker/ERS_twoways_crse_compare.png",
           width = 1200, height = 800)
 
 
@@ -213,7 +216,7 @@ ERS<-1:9 #9 ERS Regions
             axis.text=element_text(size=12),
             axis.title = element_text(size=18))  
 
-    ggexport(ERS_plot2, filename = paste0("Data/Visualize/boxwhisker/ERS_coeff_multicompare_ERS", e, ".png"),
+    ggexport(ERS_plot2, filename = paste0("Data/Visualize/boxwhisker/ERS_twoways_crse_multicompare_ERS", e, ".png"),
              width = 2100, height = 1500)
     
   }#End ERS Loop
@@ -235,12 +238,187 @@ ERS_plot3<-dotwhisker::dwplot(ERS_plot_df_byERS,
            axis.text=element_text(size=14),
            axis.title = element_text(size=16)) 
 
-ggexport(ERS_plot3, filename = "Data/Visualize/boxwhisker/ERS_coeff_compare_byERS.png",
+ggexport(ERS_plot3, filename = "Data/Visualize/boxwhisker/ERS_twoways_crse_compare_byERS.png",
              width = 1200, height = 800)
 
 
 ```
 
+
+Figure out way to put similar ERS region results together (panel of 4 with two together- such as NW, SW, NE, SE, Midwest, etc.)
+
+```{r}
+
+#Trying submodels again
+
+
+ERS_plot_df_sub <- ERS_df_coef %>%
+  rename(submodel = ERS) %>%
+  select(-submodel, everything(), submodel) %>%
+  relabel_predictors(c(pland_crops = "% Crop",
+                     cropintensity = "Crop Intensity",
+                     msidi = "Land Diversity",
+                     mna_crops = "Avg. Crop Area",
+                     largefarm_planted = "Large Farm",
+                     natural_crops_ed = "Natural-Crop Edge",
+                     SDI= "Crop Diversity",
+                     soysmallgrain_planted= "Soy & Grains",
+                     corn_planted= "Corn",
+                     fruitveg_planted= "Fruit & Veg"))
+
+#Subset by ERS to graph together as submodels (max of 3 and need 0 and 1)
+  ERS_west<-subset(ERS_plot_df_sub, ERS_plot_df_sub$submodel==3|ERS_plot_df_sub$submodel==8)
+  ERS_west[ERS_west == 3] <- 1 #Northern Great Plains
+  ERS_west[ERS_west == 8] <- 0 #Basin and Range
+  
+  ERS_midwest<-subset(ERS_plot_df_sub, ERS_plot_df_sub$submodel==1|ERS_plot_df_sub$submodel==4)
+  #ERS_midwest[ERS_midwest == 1] <- 1 #Heartland
+  ERS_midwest[ERS_midwest == 4] <- 0 #Prairie Gateway
+  
+  ERS_southeast<-subset(ERS_plot_df_sub, ERS_plot_df_sub$submodel==6|ERS_plot_df_sub$submodel==9)
+  ERS_southeast[ERS_southeast == 6] <- 1 #Southern Seaboard
+  ERS_southeast[ERS_southeast == 9] <- 0 #Mississippi Portal
+  
+  ERS_northeast<-subset(ERS_plot_df_sub, ERS_plot_df_sub$submodel==2|ERS_plot_df_sub$submodel==5)
+  ERS_northeast[ERS_northeast == 2] <- 1 #Northern Crescent
+  ERS_northeast[ERS_northeast == 5] <- 0 #Eastern Uplands
+  
+  ERS_fruit<-subset(ERS_plot_df_sub, ERS_plot_df_sub$submodel==7)
+
+#WEST
+    ERS_plot_west<-dotwhisker::small_multiple(ERS_west,
+                                          dot_args = list(size = 0.5),
+                                          whisker_args = list(size = 0.3)) +
+      theme_bw() + ylab("Coefficient Estimate") +
+      geom_hline(yintercept = 0, colour = "grey60", linetype = 2) +
+      ggtitle("Coefficient Comparison for Western ERS") +
+      theme(text = element_text(size = 14),
+            plot.title = element_text(face = "bold", size=20), 
+            axis.text.x = element_text(angle = 60, hjust = 1),
+            axis.text=element_text(size=12),
+            axis.title = element_text(size=18)) +
+    scale_colour_hue(name = "ERS",
+                     breaks = c(0, 1),
+                     labels = c("Basin and Range", "Northern Great Plains"))
+    ggexport(ERS_plot_west, filename = "Data/Visualize/boxwhisker/ERS_twoways_crse_west.png",
+             width = 1500, height = 1200)
+ 
+#MIDWEST   
+     ERS_plot_midwest<-dotwhisker::small_multiple(ERS_midwest,
+                                          dot_args = list(size = 0.5),
+                                          whisker_args = list(size = 0.3)) +
+      theme_bw() + ylab("Coefficient Estimate") +
+      geom_hline(yintercept = 0, colour = "grey60", linetype = 2) +
+      ggtitle("Coefficient Comparison for Midwest ERS") +
+      theme(text = element_text(size = 14),
+            plot.title = element_text(face = "bold", size=20), 
+            axis.text.x = element_text(angle = 60, hjust = 1),
+            axis.text=element_text(size=12),
+            axis.title = element_text(size=18)) +
+    scale_colour_hue(name = "ERS",
+                     breaks = c(0, 1),
+                     labels = c("Prairie Gateway", "Heartland"))
+    ggexport(ERS_plot_midwest, filename = "Data/Visualize/boxwhisker/ERS_twoways_crse_midwest.png",
+             width = 1500, height = 1200)
+    
+#Southeast
+     ERS_plot_southeast<-dotwhisker::small_multiple(ERS_southeast,
+                                          dot_args = list(size = 0.5),
+                                          whisker_args = list(size = 0.3)) +
+      theme_bw() + ylab("Coefficient Estimate") +
+      geom_hline(yintercept = 0, colour = "grey60", linetype = 2) +
+      ggtitle("Coefficient Comparison for Southeast ERS") +
+      theme(text = element_text(size = 14),
+            plot.title = element_text(face = "bold", size=20), 
+            axis.text.x = element_text(angle = 60, hjust = 1),
+            axis.text=element_text(size=12),
+            axis.title = element_text(size=18)) +
+    scale_colour_hue(name = "ERS",
+                     breaks = c(0, 1),
+                     labels = c("Mississippi Portal", "Southern Seaboard"))
+    ggexport(ERS_plot_southeast, filename = "Data/Visualize/boxwhisker/ERS_twoways_crse_southeast.png",
+             width = 1500, height = 1200)
+    
+#Northeast
+     ERS_plot_northeast<-dotwhisker::small_multiple(ERS_northeast,
+                                          dot_args = list(size = 0.5),
+                                          whisker_args = list(size = 0.3)) +
+      theme_bw() + ylab("Coefficient Estimate") +
+      geom_hline(yintercept = 0, colour = "grey60", linetype = 2) +
+      ggtitle("Coefficient Comparison for Northeast ERS") +
+      theme(text = element_text(size = 14),
+            plot.title = element_text(face = "bold", size=20), 
+            axis.text.x = element_text(angle = 60, hjust = 1),
+            axis.text=element_text(size=12),
+            axis.title = element_text(size=18)) +
+    scale_colour_hue(name = "ERS",
+                     breaks = c(0, 1),
+                     labels = c("Eastern Uplands", "Northern Cresecent"))
+    ggexport(ERS_plot_northeast, filename = "Data/Visualize/boxwhisker/ERS_twoways_crse_northeast.png",
+             width = 1500, height = 1200)
+    
+#Fruitful Rim
+     ERS_plot_fruit<-dotwhisker::small_multiple(ERS_fruit,
+                                          dot_args = list(size = 0.5),
+                                          whisker_args = list(size = 0.3)) +
+      theme_bw() + ylab("Coefficient Estimate") +
+      geom_hline(yintercept = 0, colour = "grey60", linetype = 2) +
+      ggtitle("Coefficient Comparison for Fruitful Rim ERS") +
+      theme(text = element_text(size = 14),
+            plot.title = element_text(face = "bold", size=20), 
+            axis.text.x = element_text(angle = 60, hjust = 1),
+            axis.text=element_text(size=12),
+            axis.title = element_text(size=18))+
+        scale_colour_hue(name = "ERS",
+                     breaks = c(7),
+                     labels = c("Fruitful Rim"))
+    ggexport(ERS_plot_fruit, filename = "Data/Visualize/boxwhisker/ERS_twoways_crse_fruit.png",
+             width = 1500, height = 1200)
+#Just make and save all 5 and then bind them in the PDF and give good title
+    #Currrently too large to panel them
+    
+    #Also do it for regular dwplot and separate into regions- those can be stacked next to each easier
+
+```
+
+
+#Look at one variable across ERS for a model
+
+```{r}
+
+ERS_subset <- ERS_df_coef %>%
+  relabel_predictors(c(PercentCrop = "Percent Crop",
+                     CropIntensity = "Crop Intensity",
+                     LandDiversity = "Land Diversity",
+                     MeanCropArea = "Avg. Crop Area",
+                     LargeFarms = "Large Farm",
+                     NaturalCropEdge = "Natural-Crop Edge",
+                     CropDiversity= "Crop Diversity",
+                     SoyGrains= "Soy & Grains",
+                     Corn= "Corn",
+                     FruitVeg= "Fruit & Veg"))
+
+#Plot ERS on x and coefficient for each model with SD facet by term
+library(ggplot2)
+ERScompare<-ggplot(ERS_subset, aes(x = factor(ERS), color = model)) +
+  geom_errorbar(aes(ymax = estimate + std.error, ymin = estimate - std.error),
+                position = "dodge")+
+  facet_wrap(~term, scale="free")+
+   geom_hline(yintercept = 0, colour = "grey60", linetype = 2) +
+  theme_bw() + ylab("Coefficient Estimate") + xlab("ERS")+ labs(color="Model")+
+  theme(text = element_text(size = 14),
+            axis.text=element_text(size=12),
+            axis.title = element_text(size=18),
+          strip.text.x = element_text(size = 16),
+          legend.title=element_text(size=18), 
+          legend.text=element_text(size=16))
+
+
+ggexport(ERScompare, filename = "Data/Visualize/boxwhisker/ERScompare.png",
+             width = 1500, height = 1200)
+
+
+```
 
 
 
@@ -264,6 +442,74 @@ For example:
 #                                                                       "Fruitful Rim", "Basin and Range", "Mississippi Portal"),
 #                                      out="Z:/Sofie/Data/Regressions/panel_models_CDL_EDS_3var.txt") 
 
+
+```
+
+
+### Examine spatially what variables look like per county/ERS region
+
+Create map figure with the SD over time of each of the regression variables/covariates (color code of SD between the years)-instead of the all the year numbers
+
+```{r}
+
+#Need the shapefile- reading in from computer but eventually maybe store it on github
+#Read in FIPS county shapefile
+library(sf)
+library(tidyverse)
+#library(ggplot2)
+
+
+counties<-read_sf(dsn = "C:/Users/shemc/Documents/UCSB/NLCD/Data/TIGER2018_Counties", layer = "tl_2018_us_county") %>%  
+  dplyr::mutate(FIPS=paste0(STATEFP,COUNTYFP))
+contig48_counties<-subset(counties,counties$STATEFP!="02"& counties$STATEFP!="15"&
+                              counties$STATEFP!="60"&counties$STATEFP!="66"&
+                              counties$STATEFP!="69"&counties$STATEFP!="72"&
+                              counties$STATEFP!="74"&counties$STATEFP!="78") %>% 
+  select(FIPS) %>% #only CONUS counties and just need FIPS
+  dplyr::mutate(FIPS=as.numeric(FIPS))
+#Load fulldata
+load("Data/DataProcessing/df/fulldata.rda")
+counties_data <- merge(contig48_counties, fulldata, by='FIPS') %>% 
+  select(FIPS, Year, ERSCode, ASDCode, insect_planted, pland_crops, cropintensity, SDI,
+         largefarm_planted, mna_crops, natural_crops_ed, msidi,
+         soysmallgrain_planted, corn_planted, fruitveg_planted)
+
+counties_sd<-counties_data %>% 
+  group_by(FIPS) %>%
+  summarize(insect_sd=sd(insect_planted, na.rm=TRUE),
+            plandcrops_sd=sd(pland_crops, na.rm=TRUE),
+            cropintensity_sd=sd(cropintensity, na.rm=TRUE),
+            cropdiversity_sd=sd(SDI, na.rm=TRUE),
+            largefarm_sd=sd(largefarm_planted, na.rm=TRUE),
+            mnacrops_sd=sd(mna_crops, na.rm=TRUE),
+            ncedge_sd=sd(natural_crops_ed, na.rm=TRUE),
+            landdiversity_sd=sd(msidi, na.rm=TRUE),
+            soygrain_sd=sd(soysmallgrain_planted, na.rm=TRUE),
+            corn_sd=sd(corn_planted, na.rm=TRUE),
+            fruitveg_sd=sd(fruitveg_planted, na.rm=TRUE))
+            
+
+
+#Calculate standard deviation over time of each term variable- for each FIPS calculate the SD- group by FIPS and calculate SD
+
+library(tmap) #Takes awhile but would be more replicable
+# tm_shape(counties_data) +
+#   tm_fill("insect_planted", palette = "Spectral", breaks=c("0", "0.5", "1", "1.5", "2", "2.5", "3"))+
+#   tm_borders(col = "gray60", lwd = 2)
+
+tm_shape(counties_sd)+
+  tm_fill("insect_sd", 
+          title = "Insecticides",
+          breaks = c(0, 0.25, 0.5, 0.75, 1),
+          style = "fixed",
+          textNA = "No data",
+          colorNA = "white", 
+          palette = "Reds")+
+  tm_borders()
+
+
+#Figure out how to:
+ #Set coloring dimensions
 
 ```
 

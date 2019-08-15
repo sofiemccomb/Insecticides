@@ -57,9 +57,9 @@ load("Data/DataProcessing/df/fulldata.rda")
     #largefarm_planted
       largefarm_planted_fips<-XTSUM(fulldata, varname=largefarm_planted, unit=FIPS)
       largefarm_planted_year<-XTSUM(fulldata, varname=largefarm_planted, unit=Year)
-    #te_shared_c_nc
-      te_shared_c_nc_fips<-XTSUM(fulldata, varname=te_shared_c_nc, unit=FIPS)
-      te_shared_c_nc_year<-XTSUM(fulldata, varname=te_shared_c_nc, unit=Year)
+    #natural_crops_ed
+      natural_crops_ed_fips<-XTSUM(fulldata, varname=natural_crops_ed, unit=FIPS)
+      natural_crops_ed_year<-XTSUM(fulldata, varname=natural_crops_ed, unit=Year)
     #SDI
       SDI_fips<-XTSUM(fulldata, varname=SDI, unit=FIPS)
       SDI_year<-XTSUM(fulldata, varname=SDI, unit=Year)
@@ -79,7 +79,7 @@ load("Data/DataProcessing/df/fulldata.rda")
                              msidi_fips, msidi_year,
                              mna_crops_fips, mna_crops_year,
                              largefarm_planted_fips, largefarm_planted_year,
-                             te_shared_c_nc_fips, te_shared_c_nc_year,
+                             natural_crops_ed_fips, natural_crops_ed_year,
                              SDI_fips, SDI_year,
                              soysmallgrain_planted_fips, soysmallgrain_planted_year,
                              corn_planted_fips, corn_planted_year,

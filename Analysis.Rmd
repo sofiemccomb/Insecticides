@@ -21,12 +21,12 @@ Current primary variables to be examined include:
     * Crop diversity, 0-1 value
 4. msidi
     * Simpson's landscape diversity, 0-1 value 
-5. te_shared_c_nc 
-    * Shared edge length between natural land and cropland divided by the total edge length of cropland, in   meters/meters
+5. natural_crops_ed 
+    * Shared edge length between natural land and cropland divided by the total county area, in meters/hectares [edge density]  
 6. mna_crops
     * Mean patch size in hectares of cropland, in hectares
 7. largefarm_planted
-    * Acreage of harvested acres for farms >500acres, in acres 
+    * Acreage of harvested acres for farms >500acres in terms of planted cropland, in acres/acres 
 
 Secondary variables to be examined include:  
 
@@ -87,15 +87,29 @@ load("Data/Analysis/xtsum/xtsum_df.Rda")
 ```
 
 
+### Prepare Data for Regression
+
+```{r}
+
+#Create dataframe with just the needed regression variables that are stndardized for comparisons    
+  finaldata<-fulldata %>% 
+  select(FIPS, Year, ERSCode, ASDCode, insect_planted, pland_crops, cropintensity, SDI,
+         largefarm_planted, mna_crops, natural_crops_ed, msidi,
+         soysmallgrain_planted, corn_planted, fruitveg_planted) %>% 
+  mutate_at(scale, .vars=vars(-FIPS, -Year, -ERSCode, -ASDCode, -insect_planted)) #Scale by subtracting column mean and dividing by column SD
+
+#Remove rows with NA value for ASDcode
+  finaldata<-finaldata[!is.na(fulldata$ASDCode),]
+
+#Write finaldata to df folder (best place to store even though in Analysis script) to pulled for later regressions
+    write_csv(finaldata, "Data/DataProcessing/df/finaldata.csv")
+    save(finaldata, file = "Data/DataProcessing/df/finaldata.rda")
+
+```
+
+
 ## Run Panel Linear Model Regressions
-Perform the regressions within separate R scripts, and have lists of the performed models loadable as rda file in order to perform analyses on the model results and create dataframes of results across models. All regressions are run using the "R/run_plm.R" script, which contains the run_plm function for performing panel linear model regressions. The script is sourced directly in the analysis scripts that are used below. The model inputs are created in each of the two scripts.
-
-The general format is:  
-
-run_plm<-function(predictors, data=fulldata,index = c("FIPS","Year"), model = "within",effect = "twoways"){
-  Formula=stats::as.formula(paste("insect_planted ~ ", paste(predictors, collapse=" + ")))
-  plm_model<-plm::plm(Formula, data = data,index = index,model = model,effect = effect)
-  return(plm_model)}
+Perform the regressions within separate R scripts, perform analyses on the model results, and create dataframes of results across models. The script is sourced directly in the analysis scripts that are used below.
 
 
 Current versions of regressions to be performed for both pooled counties and by ERS regions include:  
@@ -103,110 +117,35 @@ Current versions of regressions to be performed for both pooled counties and by 
 1. Using all 7 primary variables
 2. Using 6 primary variables, excluding SDI 
 3. Using 6 primary variables, excluding SDI, but just for 2002-2017
-4. All secondary crop covariates included
- 
-Twoways, individual, and time fixed effects models will be run for each regression, both as a within model and pooling model.
+4. All secondary crop covariates included, for the three options above
 
-Default of regression is na.omit, so okay to currently rows with NA values as they will be excluded from the analysis by the regression functions. 
+ 
+Twoways (individual and time) fixed effects models will be run for each regression. Individual will be represented by ASDCode and time will be represetned by year.
 
 Metadata available as Data/Analysis/df/DF_Metadata.txt. File generally describes the columns available in each of the created csv outputs under Data/Analysis/df subfolders. 
 
-
-### 1) Counties Pooled (cp)
-
-The cpmodels script performs the plm models for all counties pooled together using the run_plm function/script, and the list of model results are loaded and analyzed below.
-
-#### Run panel regressions and save outputs as list of models in RDA format to be loaded
-
-```{r cpmodels, message=F, warning=F}
-
-#Script runs the counties pooled (cp) regression models and creates .Rda file of list of plm models (edit models in R script)
-source("R/Analysis/cpmodels.R") #Takes a few minutes to run both within and pooling models
-  #Separated into multiple lists of models so that rda files were not too large for github (<100 MB)
-load("Data/Analysis/models/CP/cpmodels_within.Rda") #Within model for steps 1-3 ( 7 and 6 primary varialbes)
-load("Data/Analysis/models/CP/cpmodels_crops_within.Rda") #Pooling model for steps 1-3 ( 7 and 6 primary varialbes)
-load("Data/Analysis/models/CP/cpmodels_pooling.Rda") #Within model for step 4 (rerun steps 1-3 with crop covariates)
-load("Data/Analysis/models/CP/cpmodels_crops_pooling.Rda") #Pooling model for step 4 (rerun steps 1-3 with crop covariates)
-
-```
-
-#### Create dataframe of important model information from each model
+Using broom package to put plm model informatino into tidy dataframe format. 
+For more information: https://cran.r-project.org/web/packages/broom/vignettes/broom.html
 
 Using clubsandwih package to perform cluster-robust standard errors in tidy format.
 For more information: https://cran.r-project.org/web/packages/clubSandwich/vignettes/panel-data-CRVE.html
 
-Otherwise, use broom package to put plm model informatino into tidy dataframe format. 
-For more information: https://cran.r-project.org/web/packages/broom/vignettes/broom.html
-
-```{r cp_df, message=F, warning=F}
-
-#Combine within and pooling lists of models together to perform analyses
-cpmodelswithin<-c(cpmodels_within, cpmodels_crops_within)
-cpmodelspooling<-c(cpmodels_pooling, cpmodels_crops_pooling)
+Using car::vif to run variance  variance inflation factor (vif) to look at multicollinearity between variables 
+(VIF of 1=no correlation among predictors, >4 investigate, >10 serious correction)
 
 
-#Broom package used to put plm model information into tidy dataframe format- was using before using coef_test (check which correct)
-  #tidy(): cofficients, augment(): residuals, glance(): model statistic values
+### 1) Counties Pooled (cp)
 
-#Create cp_df for coefficient dataframe
-cp_df<- cpmodelswithin[[1]] %>%
-    broom::tidy() %>%
-    #by_2sd(mtcars) %>% #If need to rescale regression results for comparison?
-    dplyr::mutate(model = names(cpmodelswithin)[[1]])
+The cpmodels script performs the lm models for all counties pooled together and cleans up results into tidy dataframes. Run on standardized variables. Fixed effects include time as years and individual as ASD districts.
 
-#Fill dataframe with model results
-for (i in 2:length(cpmodelswithin)){
-  cp_model<-cpmodelswithin[[i]]
-  cp_df<-rbind(cp_df, cp_model %>%
-                 broom::tidy() %>%
-                 #by_2sd(mtcars) %>% #If need to rescale regression results for comparison?
-                 mutate(model=names(cpmodelswithin)[[i]]))
-} #end for loop of model dataframe
 
-  #Calculating cluster-robust standard errors, using Satterthwaite (default)
-# result1<-coef_test(ex1, vcov = "CR1", cluster = "individual", test = "naive-t")
-# result2<-coef_test(ex1, vcov = "CR2", cluster = "individual", test = "Satterthwaite")
+```{r cpmodels, message=F, warning=F}
 
-#Create cp_df for coefficient dataframe with cluster robust testing, eventually possibly change to Satterthwaite
-cp_df_coef<- cpmodelswithin[[1]] %>% 
-    clubSandwich::coef_test(vcov = "CR1", cluster = "individual", test = "naive") %>% 
-    tibble::rownames_to_column(var = "term") %>% 
-    rename(estimate=beta, std.error=SE, statistic=tstat, p.value=p_t) %>% 
-    dplyr::mutate(model=names(cpmodelswithin)[[1]])
-
-#Fill dataframe with model results
-for (i in 2:length(cpmodelswithin)){
-  cp_model<-cpmodelswithin[[i]]
-  cp_df_coef<-rbind(cp_df_coef, cp_model %>%
-                clubSandwich::coef_test(vcov = "CR1", cluster = "individual", test = "naive") %>% 
-                tibble::rownames_to_column(var = "term") %>% 
-                rename(estimate=beta, std.error=SE, statistic=tstat, p.value=p_t) %>% 
-                dplyr::mutate(model=names(cpmodelswithin)[[i]])
-               )#end rbind
-} #end for loop of model dataframe
-
-#Run variance inflation factor (vif) to look at multicollinearity between variables and look at correlation matrices
-  #Can only run on model=pooling for plm
-    #However, since vif is about examining indepdenent variables, theoretically there is less need to control for effects
-    #VIF of 1=no correlation among predictors, >4 investigate, >10 serious correction
-
-  #VIF on pooled data
-  cp_vif<-lapply(cpmodelspooling, function(p){rownames_to_column(as.data.frame(car::vif(p)), "term")}) %>%
-    purrr::reduce(full_join, by = "term") %>%
-    setNames(c("term", names(cpmodelspooling))) %>% 
-    reshape2::melt(id.vars="term")
-  colnames(cp_vif)<-c("term", "model", "vif")
-
-  #Correlation matrix on within data
-  cp_corr<-lapply(cpmodelswithin, function(v){cov2cor(v$vcov)})
-  
-#Write csv for each of the created dataframes and rda for the correlation matrix list (save under Data/Analysis/df/CP)
-  write_csv(cp_df, "Data/Analysis/df/CP/cp_df.csv")
-  write_csv(cp_df_coef, "Data/Analysis/df/CP/cp_df_coef.csv") # No metadata yet
-  write_csv(cp_vif, "Data/Analysis/df/CP/cp_vif.csv")
-  save(cp_corr, file="Data/Analysis/df/CP/cp_corr.Rda")
+#Script runs the counties pooled (cp) regression models scripts that creates dataframe outputs (models not saved)
+source("R/Analysis/cpmodels.R") 
 
 ```
+
 
 
 ### 2) By ERS Region
@@ -218,98 +157,21 @@ The ERS zones are:
 3. Northern Great Plains
 4. Prairie Gateway
 5. Eastern Uplands 
-6. Souther Seaboard
+6. Southern Seaboard
 7. Fruitful Rim
 8. Basin and Range 
 9. Mississippi Portal
 
  
-#### Run panel regressions and save outputs as list of models in RDA format to be iterated through
-
-Figure out if printing code with include=FALSE, otherwise other way to include source without messages popping up.
+The ERSmodels script performs the lm models for counties interacted with ERS regions and cleans up results into tidy dataframes. Run on standardized variables. Fixed effects include time as years and individual as ASD districts.
 
 ```{r ERSmodels, message=FALSE, warning=FALSE, include=FALSE}
 
-#Script runs the ERS (cp) regression models subset by ERS and creates .Rda file of list of plm models (edit models in R script)
+#Script runs the ERS (cp) regression models interacted by ERS that creates tidy dataframes (models not saved)
 source("R/Analysis/ERSmodels.R")
-#Takes a few minutes to run both within and pooling models for all ERS separately
-  #Separated out crop covariate models so that rda files were not too large for github
 
-#Similar files to cpmodels created, but for each individual ERS regions (have same names so can loop through them)
 
 ```
 
-#### Create dataframe of important model information from each model, saving per ERS and combining for all ERS
-
-```{r ERS_df, message=F, warning=F}
-
-#Iterate through the ERS region models and perform analyses/create df for each ERS before combining
-ERS<-1:9 #9 ERS Regions (defined in Markdown)
-  for (e in ERS){
-    #Load all 4 models within each ERS subfolder, which will be overwritten for every ERS
-    fn<-as.list(list.files(path=paste0("Data/Analysis/models/ERS/", e), full.names = TRUE ))
-    lapply(fn,load,.GlobalEnv) #loaded 4 files: ERSmodels_within/pooling & ERSmodels_crops_within/pooling
-
-    #Combine within and pooling lists of models together to perform analyses
-    ERSmodelswithin<-c(ERSmodels_within, ERSmodels_crops_within)
-    ERSmodelspooling<-c(ERSmodels_pooling, ERSmodels_crops_pooling)
-    
-    #Broom package used to put plm model information into tidy dataframe format
-      #tidy(): cofficients, augment(): residuals, glance(): model statistic values
-
-    #Create ERS_df for coefficient dataframe 
-    ERS_df<- ERSmodelswithin[[1]] %>% 
-        broom::tidy() %>%
-        dplyr::mutate(model = names(ERSmodelswithin)[[1]]) %>% 
-        dplyr::mutate(ERS=e)  #Add column for ERS code
-    
-    #Fill dataframe with model results
-    for (i in 2:length(ERSmodelswithin)){
-      ERS_model<-ERSmodelswithin[[i]]
-      ERS_df<-rbind(ERS_df, ERS_model %>% 
-                     broom::tidy() %>% 
-                     mutate(model=names(ERSmodelswithin)[[i]]) %>% 
-                     mutate(ERS=e)) #Add column for ERS code
-                     
-    } #end for loop of model dataframe
-
-    #Run variance inflation factor (vif) to look at multicollinearity between variables and look at correlation matrices
-      #Can only run on model=pooling for plm
-        #However, since vif is about examining indepdenent variables, theoretically there is less need to control for effects
-        #VIF of 1=no correlation among predictors, >4 investigate, >10 serious correction
-
-      #VIF on pooled data
-      ERS_vif<-lapply(ERSmodelspooling, function(p){rownames_to_column(as.data.frame(car::vif(p)), "term")}) %>%
-        purrr::reduce(full_join, by = "term") %>%
-        setNames(c("term", names(ERSmodelspooling))) %>%
-        reshape2::melt(id.vars="term") %>% 
-        mutate(ERS=e) #Add column for ERS code
-      colnames(ERS_vif)<-c("term", "model", "vif", "ERS")
-
-      #Correlation matrix on within data
-      ERS_corr<-lapply(ERSmodelswithin, function(v){cov2cor(v$vcov)}) #will save in correct folder but not combine across ERS
-
-    #Write csv for each of the created dataframes and rda for the correlation matrix list (save under Data/Analysis/df/ERS)
-      write_csv(ERS_df, paste0("Data/Analysis/df/ERS/", e ,"/ERS_df.csv"))
-      write_csv(ERS_vif, paste0("Data/Analysis/df/ERS/", e ,"/ERS_vif.csv"))
-      save(ERS_corr, file=paste0("Data/Analysis/df/ERS/", e ,"/ERS_corr.Rda"))
-  }
-
-#Read in the dataframe for each ERS and rbind to create combined dataframe
-  #ERS_all
-    coef_files <- list.files(pattern='ERS_df.csv', recursive=TRUE, full.names = TRUE)
-    ERS_all <- do.call(rbind , lapply(coef_files, readr::read_csv)) %>%
-      dplyr::arrange(term) #order by variable so ERS together
-
-  #ERS_vif
-    vif_files <- list.files(pattern='ERS_vif.csv', recursive=TRUE, full.names = TRUE)
-    ERS_vif_all <- do.call(rbind , lapply(vif_files, readr::read_csv)) %>%
-      dplyr::arrange(term) #order by term so ERS together
-
-#Write combined df to csv files under Data/Analysis/df/ERS as all files
-  write_csv(ERS_all, "Data/Analysis/df/ERS/ERS_all.csv")
-  write_csv(ERS_vif_all, "Data/Analysis/df/ERS/ERS_vif_all.csv")
-
-```
 
 

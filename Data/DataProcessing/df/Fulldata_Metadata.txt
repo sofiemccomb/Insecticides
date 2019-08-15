@@ -1,7 +1,7 @@
 Column names defined for fulldata.csv found under Data/DataProcessing/df, created by the DataProcessing.Rmd script. 
 
 This dataset is the combined version of the COA, CDL, and NLCD datasets, along with the ERS Region codes. 
-Crop Intensity was also calculated
+Crop Intensity was also calculated along with edge density between natural lands and crops.
 
 FIPS=5-digit Federal Information Processing Standards county code
 Year=year of analysis
@@ -106,3 +106,4 @@ pland_natural= percent of landscape natural lands (forests, shrubs, grass, wetla
 ERSCode= Code for USDA Farm Resource Regions (Economic Service Research: ERS), number 1-9
 ERSName= Name for USDA Farm Resource Regions (Economic Service Research: ERS), region name that matches with the ERSCode
 cropintensity= total area of harvested cropland per county (acres) divided by total area of cropland per county (percentage cropland multiplied by county area in acres)[harvcrop/((pland_crops/100)*countyarea)]
+natural_crop_ed= total shared edge length of natural land and crops divided by county area in hectares (tel_naturalcrops_nc/(county area*0.4046856422)
