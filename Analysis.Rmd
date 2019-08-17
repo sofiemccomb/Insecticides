@@ -15,23 +15,22 @@ Current primary variables to be examined include:
 
 1. pland_crops
     * Percentage of county with cropland area, in percent 
-2. cropintensity 
-    * Harvested cropland acres per area of county cropland, in acres/acres
-3. SDI
+2. SDI
     * Crop diversity, 0-1 value
-4. msidi
+3. msidi
     * Simpson's landscape diversity, 0-1 value 
-5. natural_crops_ed 
+4. natural_crops_ed 
     * Shared edge length between natural land and cropland divided by the total county area, in meters/hectares [edge density]  
-6. mna_crops
+5. mna_crops
     * Mean patch size in hectares of cropland, in hectares
-7. largefarm_planted
+6. largefarm_planted
     * Acreage of harvested acres for farms >500acres in terms of planted cropland, in acres/acres 
 
 Secondary variables to be examined include:  
 
 1. crop covariates
     * soysmallgrain_planted + corn_planted + fruitveg_planted, all in acres 
+2. forest_crops_ed or shrubgrass_crops_ed in place of natural_crops_ed
  
 Analyses are run for all counties pooled together (cp) and by Economic Research Service (ERS) Farm Resource Regions. County and Year fixed effects (and a combination of them) will be run for each regression.
 Furthermore, two years (1997 and 2002) and missing data for SDI, so versions will be run excluding these purposefully.
@@ -76,6 +75,7 @@ load("Data/DataProcessing/df/fulldata.rda")
 ### Examine Data with XTSUM
 
 XTSUM (based on the stata function) examines the overall, within, and between variation found in a dataset.
+currently performing in STATA instead of below
 
 ```{r xtsum, message=F, warning=F}
 
@@ -93,9 +93,10 @@ load("Data/Analysis/xtsum/xtsum_df.Rda")
 
 #Create dataframe with just the needed regression variables that are stndardized for comparisons    
   finaldata<-fulldata %>% 
-  select(FIPS, Year, ERSCode, ASDCode, insect_planted, pland_crops, cropintensity, SDI,
+  select(FIPS, Year, ERSCode, ASDCode, insect_planted, pland_crops, SDI,
          largefarm_planted, mna_crops, natural_crops_ed, msidi,
-         soysmallgrain_planted, corn_planted, fruitveg_planted) %>% 
+         soysmallgrain_planted, corn_planted, fruitveg_planted,
+         forest_crops_ed, shrubgrass_crops_ed) %>% 
   mutate_at(scale, .vars=vars(-FIPS, -Year, -ERSCode, -ASDCode, -insect_planted)) #Scale by subtracting column mean and dividing by column SD
 
 #Remove rows with NA value for ASDcode
@@ -114,9 +115,9 @@ Perform the regressions within separate R scripts, perform analyses on the model
 
 Current versions of regressions to be performed for both pooled counties and by ERS regions include:  
 
-1. Using all 7 primary variables
-2. Using 6 primary variables, excluding SDI 
-3. Using 6 primary variables, excluding SDI, but just for 2002-2017
+1. Using all 6 primary variables
+2. Using 5 primary variables, excluding SDI 
+3. Using 5 primary variables, excluding SDI, but just for 2007-2017
 4. All secondary crop covariates included, for the three options above
 
  
@@ -172,6 +173,5 @@ source("R/Analysis/ERSmodels.R")
 
 
 ```
-
 
 

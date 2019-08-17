@@ -40,9 +40,17 @@ For more information: https://cran.r-project.org/web/packages/clubSandwich/vigne
 
 ```{r data, message=FALSE, warning=FALSE}
 
-#Load data for cp and ERS df with cluster-robust standard errors
+#Load data for cp and ERS df with cluster-robust standard errors (base version is natural edges)
 cp_df_coef<-readr::read_csv("Data/Analysis/df/CP/cp_df_coeftest.csv")
 ERS_df_coef<- readr::read_csv ("Data/Analysis/df/ERS/ERS_df_coeftest.csv")
+
+#Also load for forest and shrubgrass edges
+#Forests
+cp_df_coef_forest<-readr::read_csv("Data/Analysis/df/CP/cp_df_coeftest_forest.csv")
+ERS_df_coef_forest<- readr::read_csv ("Data/Analysis/df/ERS/ERS_df_coeftest_forest.csv")
+#Shrubgrass
+cp_df_coef_shrubgrass<-readr::read_csv("Data/Analysis/df/CP/cp_df_coeftest_shrubgrass.csv")
+ERS_df_coef_shrubgrass<- readr::read_csv ("Data/Analysis/df/ERS/ERS_df_coeftest_shrubgrass.csv")
 
 #Load fulldata
 load("Data/DataProcessing/df/fulldata.rda")
@@ -63,21 +71,22 @@ source("R/Visualize/variable_boxplots.R")
 #Create boxplots for variables of interest (NA values will be removed)
 insect_plot<-var_boxplot(variable=fulldata$insect_planted, yaxis="Prop. Cropland w/ Insecticides")
 plandcrops_plot<-var_boxplot(variable=fulldata$pland_crops, yaxis="Prop. of Cty in Cropland")
-cropintensity_plot<-var_boxplot(variable=fulldata$cropintensity, yaxis="Cropland Intensity")
 msidi_plot<-var_boxplot(variable=fulldata$msidi, yaxis="Landscape Diversity")
 mnacrops_plot<-var_boxplot(variable=fulldata$mna_crops, yaxis="Avg. Acreage of Crop Patches")
 largefarm_plot<-var_boxplot(variable=fulldata$largefarm_planted, yaxis="Prop. of Cropland with Lg. Farms")
-ncshared_plot<-var_boxplot(variable=fulldata$te_shared_c_nc, yaxis="Natural to Crop Land Edges")
+ncedge_plot<-var_boxplot(variable=fulldata$natural_crops_ed, yaxis="Natural to Crop Land Edges")
 SDI_plot<-var_boxplot(variable=fulldata$SDI, yaxis="Crop Diversity")
 soygrain_plot<-var_boxplot(variable=fulldata$soysmallgrain_planted, yaxis="Prop. Soybeans & Sm. Grains")
 corn_plot<-var_boxplot(variable=fulldata$corn_planted, yaxis="Prop. Corn")
 fruitveg_plot<-var_boxplot(variable=fulldata$fruitveg_planted, yaxis="Prop. Fruit & Veg.")
+fcedge_plot<-var_boxplot(variable=fulldata$forest_crops_ed , yaxis="Forest to Crop Land Edges")
+sgcedge_plot<-var_boxplot(variable=fulldata$shrubgrass_crops_ed , yaxis="Shrubland and Grassland to Crop Land Edges")
 
 #Arrange boxplots on one page
-allvarplots<-ggarrange(insect_plot, plandcrops_plot, cropintensity_plot,
-             msidi_plot, mnacrops_plot, largefarm_plot, 
-             ncshared_plot, SDI_plot, 
+allvarplots<-ggarrange(insect_plot, plandcrops_plot,
+             msidi_plot, mnacrops_plot, largefarm_plot, SDI_plot, 
              soygrain_plot, corn_plot, fruitveg_plot, 
+             ncedge_plot, fcedge_plot, sgcedge_plot,
           labels = c("A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K"),
           ncol = 4, nrow = 3)
 
@@ -102,7 +111,6 @@ Create box and whisker plots of the model coefficients useing the dotwhisker pac
 #Relabel predictors
 cp_plot_df <- cp_df_coef %>%
   relabel_predictors(c(PercentCrop = "Percent Crop",
-                     CropIntensity = "Crop Intensity",
                      LandDiversity = "Land Diversity",
                      MeanCropArea = "Avg. Crop Area",
                      LargeFarms = "Large Farm",
@@ -169,7 +177,6 @@ ggexport(CPcompare, filename = "Data/Visualize/boxwhisker/CPcompare.png",
 #Relabel predictors
 ERS_plot_df <- ERS_df_coef %>%
   relabel_predictors(c(PercentCrop = "% Crop",
-                     CropIntensity = "Crop Intensity",
                      LandDiversity = "Land Diversity",
                      MeanCropArea = "Avg. Crop Area",
                      LargeFarms = "Large Farm",
@@ -256,7 +263,6 @@ ERS_plot_df_sub <- ERS_df_coef %>%
   rename(submodel = ERS) %>%
   select(-submodel, everything(), submodel) %>%
   relabel_predictors(c(pland_crops = "% Crop",
-                     cropintensity = "Crop Intensity",
                      msidi = "Land Diversity",
                      mna_crops = "Avg. Crop Area",
                      largefarm_planted = "Large Farm",
@@ -388,7 +394,6 @@ ERS_plot_df_sub <- ERS_df_coef %>%
 
 ERS_subset <- ERS_df_coef %>%
   relabel_predictors(c(PercentCrop = "Percent Crop",
-                     CropIntensity = "Crop Intensity",
                      LandDiversity = "Land Diversity",
                      MeanCropArea = "Avg. Crop Area",
                      LargeFarms = "Large Farm",
@@ -415,6 +420,278 @@ ERScompare<-ggplot(ERS_subset, aes(x = factor(ERS), color = model)) +
 
 
 ggexport(ERScompare, filename = "Data/Visualize/boxwhisker/ERScompare.png",
+             width = 1500, height = 1200)
+
+
+```
+
+#Forest and Shrubgrass
+
+For forest and shrubgrass edges just doing errorbar maps
+
+##Forests
+
+```{r}
+
+#Plot ERS on x and coefficient for each model with SD facet by term
+library(ggplot2)
+cp_plot_df_forest <- cp_df_coef_forest %>%
+  relabel_predictors(c(PercentCrop = "Percent Crop",
+                     LandDiversity = "Land Diversity",
+                     MeanCropArea = "Avg. Crop Area",
+                     LargeFarms = "Large Farm",
+                     ForestCropEdge = "Forest-Crop Edge",
+                     CropDiversity= "Crop Diversity",
+                     SoyGrains= "Soy & Grains",
+                     Corn= "Corn",
+                     FruitVeg= "Fruit & Veg"))
+
+CPcompare_Forest<-ggplot(cp_plot_df_forest, aes(x = model, color=model)) +
+  geom_errorbar(aes(ymax = estimate + std.error, ymin = estimate - std.error),
+                position = "dodge")+
+   geom_hline(yintercept = 0, colour = "grey60", linetype = 2) +
+  theme_bw() + ylab("Coefficient Estimate")+ labs(color="Model")+xlab("")+
+  facet_wrap(~term)+
+  theme(text = element_text(size = 14),
+            axis.text.x=element_blank(),
+            axis.title = element_text(size=18),
+          strip.text.x = element_text(size = 16),
+            legend.title=element_text(size=18), 
+          legend.text=element_text(size=16))
+
+
+ggexport(CPcompare_Forest, filename = "Data/Visualize/boxwhisker/CPcompare_Forest.png",
+             width = 1500, height = 1200)
+
+ERS_subset_forest<- ERS_df_coef_forest %>%
+  relabel_predictors(c(PercentCrop = "Percent Crop",
+                     LandDiversity = "Land Diversity",
+                     MeanCropArea = "Avg. Crop Area",
+                     LargeFarms = "Large Farm",
+                     ForestCropEdge = "Forest-Crop Edge",
+                     CropDiversity= "Crop Diversity",
+                     SoyGrains= "Soy & Grains",
+                     Corn= "Corn",
+                     FruitVeg= "Fruit & Veg"))
+
+#Plot ERS on x and coefficient for each model with SD facet by term
+ERScompare_Forest<-ggplot(ERS_subset_forest, aes(x = factor(ERS), color = model)) +
+  geom_errorbar(aes(ymax = estimate + std.error, ymin = estimate - std.error),
+                position = "dodge")+
+  facet_wrap(~term, scale="free")+
+   geom_hline(yintercept = 0, colour = "grey60", linetype = 2) +
+  theme_bw() + ylab("Coefficient Estimate") + xlab("ERS")+ labs(color="Model")+
+  theme(text = element_text(size = 14),
+            axis.text=element_text(size=12),
+            axis.title = element_text(size=18),
+          strip.text.x = element_text(size = 16),
+          legend.title=element_text(size=18), 
+          legend.text=element_text(size=16))
+
+
+ggexport(ERScompare_Forest, filename = "Data/Visualize/boxwhisker/ERScompare_Forest.png",
+             width = 1500, height = 1200)
+
+```
+
+
+##Shrublands and Grasslands
+
+```{r}
+
+#Plot ERS on x and coefficient for each model with SD facet by term
+library(ggplot2)
+cp_plot_df_shrubgrass <- cp_df_coef_shrubgrass %>%
+  relabel_predictors(c(PercentCrop = "Percent Crop",
+                     LandDiversity = "Land Diversity",
+                     MeanCropArea = "Avg. Crop Area",
+                     LargeFarms = "Large Farm",
+                     ShrubGrassCropEdge = "Shrub & Grass-Crop Edge",
+                     CropDiversity= "Crop Diversity",
+                     SoyGrains= "Soy & Grains",
+                     Corn= "Corn",
+                     FruitVeg= "Fruit & Veg"))
+
+CPcompare_ShrubGrass<-ggplot(cp_plot_df_shrubgrass, aes(x = model, color=model)) +
+  geom_errorbar(aes(ymax = estimate + std.error, ymin = estimate - std.error),
+                position = "dodge")+
+   geom_hline(yintercept = 0, colour = "grey60", linetype = 2) +
+  theme_bw() + ylab("Coefficient Estimate")+ labs(color="Model")+xlab("")+
+  facet_wrap(~term)+
+  theme(text = element_text(size = 14),
+            axis.text.x=element_blank(),
+            axis.title = element_text(size=18),
+          strip.text.x = element_text(size = 16),
+            legend.title=element_text(size=18), 
+          legend.text=element_text(size=16))
+
+
+ggexport(CPcompare_ShrubGrass, filename = "Data/Visualize/boxwhisker/CPcompare_ShrubGrass.png",
+             width = 1500, height = 1200)
+
+ERS_subset_shrubgrass<- ERS_df_coef_shrubgrass %>%
+  relabel_predictors(c(PercentCrop = "Percent Crop",
+                     LandDiversity = "Land Diversity",
+                     MeanCropArea = "Avg. Crop Area",
+                     LargeFarms = "Large Farm",
+                     ShrubGrassCropEdge = "Shrub & Grass-Crop Edge",
+                     CropDiversity= "Crop Diversity",
+                     SoyGrains= "Soy & Grains",
+                     Corn= "Corn",
+                     FruitVeg= "Fruit & Veg"))
+
+#Plot ERS on x and coefficient for each model with SD facet by term
+ERScompare_ShrubGrass<-ggplot(ERS_subset_shrubgrass, aes(x = factor(ERS), color = model)) +
+  geom_errorbar(aes(ymax = estimate + std.error, ymin = estimate - std.error),
+                position = "dodge")+
+  facet_wrap(~term, scale="free")+
+   geom_hline(yintercept = 0, colour = "grey60", linetype = 2) +
+  theme_bw() + ylab("Coefficient Estimate") + xlab("ERS")+ labs(color="Model")+
+  theme(text = element_text(size = 14),
+            axis.text=element_text(size=12),
+            axis.title = element_text(size=18),
+          strip.text.x = element_text(size = 16),
+          legend.title=element_text(size=18), 
+          legend.text=element_text(size=16))
+
+
+ggexport(ERScompare_ShrubGrass, filename = "Data/Visualize/boxwhisker/ERScompare_ShrubGrass.png",
+             width = 1500, height = 1200)
+
+```
+
+
+
+#Separate CP by years- three/four years
+
+```{r}
+
+library(ggplot2)
+
+cp_plot_df_4yrs<-cp_df_coef %>%
+  dplyr::filter(model=="Var5"|model=="Var5_crops") %>% 
+  relabel_predictors(c(PercentCrop = "Percent Crop",
+                     LandDiversity = "Land Diversity",
+                     MeanCropArea = "Avg. Crop Area",
+                     LargeFarms = "Large Farm",
+                     NaturalCropEdge = "Natural-Crop Edge",
+                     CropDiversity= "Crop Diversity",
+                     SoyGrains= "Soy & Grains",
+                     Corn= "Corn",
+                     FruitVeg= "Fruit & Veg"))
+
+CPcompare_4yrs<-ggplot(cp_plot_df_4yrs, aes(x = model, color=model)) +
+  geom_errorbar(aes(ymax = estimate + std.error, ymin = estimate - std.error),
+                position = "dodge")+
+   geom_hline(yintercept = 0, colour = "grey60", linetype = 2) +
+  theme_bw() + ylab("Coefficient Estimate")+ labs(color="Model")+xlab("")+
+  facet_wrap(~term)+
+  theme(text = element_text(size = 14),
+            axis.text.x=element_blank(),
+            axis.title = element_text(size=18),
+          strip.text.x = element_text(size = 16),
+            legend.title=element_text(size=18), 
+          legend.text=element_text(size=16))
+
+
+ggexport(CPcompare_4yrs, filename = "Data/Visualize/boxwhisker/CPcompare_4yrs.png",
+             width = 1500, height = 1200)
+
+
+
+cp_plot_df_3yrs<-cp_df_coef %>%
+  dplyr::filter(model!="Var5"&model!="Var5_crops") %>% 
+  relabel_predictors(c(PercentCrop = "Percent Crop",
+                     LandDiversity = "Land Diversity",
+                     MeanCropArea = "Avg. Crop Area",
+                     LargeFarms = "Large Farm",
+                     NaturalCropEdge = "Natural-Crop Edge",
+                     CropDiversity= "Crop Diversity",
+                     SoyGrains= "Soy & Grains",
+                     Corn= "Corn",
+                     FruitVeg= "Fruit & Veg"))
+
+CPcompare_3yrs<-ggplot(cp_plot_df_3yrs, aes(x = model, color=model)) +
+  geom_errorbar(aes(ymax = estimate + std.error, ymin = estimate - std.error),
+                position = "dodge")+
+   geom_hline(yintercept = 0, colour = "grey60", linetype = 2) +
+  theme_bw() + ylab("Coefficient Estimate")+ labs(color="Model")+xlab("")+
+  facet_wrap(~term)+
+  theme(text = element_text(size = 14),
+            axis.text.x=element_blank(),
+            axis.title = element_text(size=18),
+          strip.text.x = element_text(size = 16),
+            legend.title=element_text(size=18), 
+          legend.text=element_text(size=16))
+
+
+ggexport(CPcompare_3yrs, filename = "Data/Visualize/boxwhisker/CPcompare_3yrs.png",
+             width = 1500, height = 1200)
+
+
+
+#Color code years
+library(ggplot2)
+
+cp_plot_df_yrs<-cp_df_coef %>%
+  dplyr::mutate(years=ifelse(model=="Var5"|model=="Var5_crops", "4 years", "3 years")) %>% 
+  relabel_predictors(c(PercentCrop = "Percent Crop",
+                     LandDiversity = "Land Diversity",
+                     MeanCropArea = "Avg. Crop Area",
+                     LargeFarms = "Large Farm",
+                     NaturalCropEdge = "Natural-Crop Edge",
+                     CropDiversity= "Crop Diversity",
+                     SoyGrains= "Soy & Grains",
+                     Corn= "Corn",
+                     FruitVeg= "Fruit & Veg"))
+
+CPcompare_yrs<-ggplot(cp_plot_df_yrs, aes(x = model, color=years)) +
+  geom_errorbar(aes(ymax = estimate + std.error, ymin = estimate - std.error),
+                position = "dodge")+
+   geom_hline(yintercept = 0, colour = "grey60", linetype = 2) +
+  theme_bw() + ylab("Coefficient Estimate")+ labs(color="Model")+xlab("")+
+  facet_wrap(~term)+
+  theme(text = element_text(size = 14),
+            axis.text.x=element_blank(),
+            axis.title = element_text(size=18),
+          strip.text.x = element_text(size = 16),
+            legend.title=element_text(size=18), 
+          legend.text=element_text(size=16))
+
+
+ggexport(CPcompare_yrs, filename = "Data/Visualize/boxwhisker/CPcompare_yrs.png",
+             width = 1500, height = 1200)
+
+
+
+ERS_plot_df_yrs<- ERS_df_coef %>%
+   dplyr::mutate(years=ifelse(model=="Var5"|model=="Var5_crops", "4 years", "3 years")) %>% 
+  relabel_predictors(c(PercentCrop = "Percent Crop",
+                     LandDiversity = "Land Diversity",
+                     MeanCropArea = "Avg. Crop Area",
+                     LargeFarms = "Large Farm",
+                     ShrubGrassCropEdge = "Shrub & Grass-Crop Edge",
+                     CropDiversity= "Crop Diversity",
+                     SoyGrains= "Soy & Grains",
+                     Corn= "Corn",
+                     FruitVeg= "Fruit & Veg"))
+
+#Plot ERS on x and coefficient for each model with SD facet by term
+ERScompare_yrs<-ggplot(ERS_plot_df_yrs, aes(x = factor(ERS), color = years)) +
+  geom_errorbar(aes(ymax = estimate + std.error, ymin = estimate - std.error),
+                position = "dodge")+
+  facet_wrap(~term, scale="free")+
+   geom_hline(yintercept = 0, colour = "grey60", linetype = 2) +
+  theme_bw() + ylab("Coefficient Estimate") + xlab("ERS")+ labs(color="Model")+
+  theme(text = element_text(size = 14),
+            axis.text=element_text(size=12),
+            axis.title = element_text(size=18),
+          strip.text.x = element_text(size = 16),
+          legend.title=element_text(size=18), 
+          legend.text=element_text(size=16))
+
+
+ggexport(ERScompare_yrs, filename = "Data/Visualize/boxwhisker/ERScompare_yrs.png",
              width = 1500, height = 1200)
 
 
@@ -470,15 +747,15 @@ contig48_counties<-subset(counties,counties$STATEFP!="02"& counties$STATEFP!="15
 #Load fulldata
 load("Data/DataProcessing/df/fulldata.rda")
 counties_data <- merge(contig48_counties, fulldata, by='FIPS') %>% 
-  select(FIPS, Year, ERSCode, ASDCode, insect_planted, pland_crops, cropintensity, SDI,
+  select(FIPS, Year, ERSCode, ASDCode, insect_planted, pland_crops, SDI,
          largefarm_planted, mna_crops, natural_crops_ed, msidi,
-         soysmallgrain_planted, corn_planted, fruitveg_planted)
+         soysmallgrain_planted, corn_planted, fruitveg_planted,
+         forest_crops_ed, shrubgrass_crops_ed)
 
 counties_sd<-counties_data %>% 
   group_by(FIPS) %>%
   summarize(insect_sd=sd(insect_planted, na.rm=TRUE),
             plandcrops_sd=sd(pland_crops, na.rm=TRUE),
-            cropintensity_sd=sd(cropintensity, na.rm=TRUE),
             cropdiversity_sd=sd(SDI, na.rm=TRUE),
             largefarm_sd=sd(largefarm_planted, na.rm=TRUE),
             mnacrops_sd=sd(mna_crops, na.rm=TRUE),
@@ -486,7 +763,9 @@ counties_sd<-counties_data %>%
             landdiversity_sd=sd(msidi, na.rm=TRUE),
             soygrain_sd=sd(soysmallgrain_planted, na.rm=TRUE),
             corn_sd=sd(corn_planted, na.rm=TRUE),
-            fruitveg_sd=sd(fruitveg_planted, na.rm=TRUE))
+            fruitveg_sd=sd(fruitveg_planted, na.rm=TRUE),
+            fcedge_sd=sd(forest_crops_ed, na.rm=TRUE),
+            sgcedge_sd=sd(shrubgrass_crops_ed, na.rm=TRUE))
             
 
 
@@ -500,7 +779,7 @@ library(tmap) #Takes awhile but would be more replicable
 tm_shape(counties_sd)+
   tm_fill("insect_sd", 
           title = "Insecticides",
-          breaks = c(0, 0.25, 0.5, 0.75, 1),
+          breaks = c(0, 0.05, 0.10, 0.25, 0.5, 0.75, 1),
           style = "fixed",
           textNA = "No data",
           colorNA = "white", 

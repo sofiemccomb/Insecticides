@@ -193,13 +193,27 @@ fulldata<-fulldata %>%
 #Add in column for natural-crops edge density
   #Have shared edge length between natural land and crops divided by county area (ag)
 
+#Use 2017 county area to fill all other year county area so standardized per FIPS
+  fulldata<-fulldata %>% 
+    dplyr::group_by(FIPS) %>% 
+    arrange(desc(Year)) %>% 
+    dplyr::mutate(countyarea=countyarea[1]) %>% 
+    arrange(FIPS) %>% 
+    dplyr::ungroup()
+
 fulldata<-fulldata %>% 
   dplyr::mutate(cropintensity=harvcrop/((pland_crops/100)*countyarea)) %>% 
-  dplyr::mutate(natural_crops_ed=tel_naturalcrops_nc/(countyarea*0.4046856422))#meters shared edge per hectare county area
+  dplyr::mutate(natural_crops_ed=tel_naturalcrops_nc/(countyarea*0.4046856422)) %>% #meters shared edge per hectare county area
+  dplyr::mutate(forest_crops_ed=tel_forestcrop_fc/(countyarea*0.4046856422)) %>% 
+  dplyr::mutate(shrubgrass_crops_ed=tel_shrubgrasscrop_sgc/(countyarea*0.4046856422))
 
 #Replace infinite values with NA for regression 
   fulldata$cropintensity[sapply(fulldata$cropintensity, is.infinite)]<-NA
   fulldata$natural_crops_ed[sapply(fulldata$natural_crops_ed, is.infinite)]<-NA
+  
+#If harvcrop or pland_crops is 0 then make cropintensity 0 
+  fulldata$cropintensity<- ifelse(fulldata$harvcrop==0, 0, fulldata$cropintensity)
+  fulldata$cropintensity<- ifelse(fulldata$pland_crops==0, 0, fulldata$cropintensity)
   
 #Remove rows with NA value for year
   fulldata<-fulldata[!is.na(fulldata$Year),]
