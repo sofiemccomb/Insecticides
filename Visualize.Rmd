@@ -768,14 +768,9 @@ counties_sd<-counties_data %>%
             sgcedge_sd=sd(shrubgrass_crops_ed, na.rm=TRUE))
             
 
+library(tmap) 
 
-#Calculate standard deviation over time of each term variable- for each FIPS calculate the SD- group by FIPS and calculate SD
-
-library(tmap) #Takes awhile but would be more replicable
-# tm_shape(counties_data) +
-#   tm_fill("insect_planted", palette = "Spectral", breaks=c("0", "0.5", "1", "1.5", "2", "2.5", "3"))+
-#   tm_borders(col = "gray60", lwd = 2)
-
+#Insecticides
 tm_shape(counties_sd)+
   tm_fill("insect_sd", 
           title = "Insecticides",
@@ -784,11 +779,10 @@ tm_shape(counties_sd)+
           textNA = "No data",
           colorNA = "white", 
           palette = "Reds")+
-  tm_borders()
+  tm_borders(col = "gray40", lwd = 1)
 
+#In the future make more maps
 
-#Figure out how to:
- #Set coloring dimensions
 
 ```
 
