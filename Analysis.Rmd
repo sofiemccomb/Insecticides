@@ -36,6 +36,8 @@ Analyses are run for all counties pooled together (cp) and by Economic Research 
 Furthermore, two years (1997 and 2002) and missing data for SDI, so versions will be run excluding these purposefully.
 Several combinations of variables and regressions will also be performed. 
 
+Will also run and save the analyses with rows removed that have <1% of cropland as defined by the NLCD.
+
 ## Data Preparation
 
 This section will load the necessary packages and data, and run analyses on the data to examine the natural variation.
@@ -108,6 +110,30 @@ load("Data/Analysis/xtsum/xtsum_df.Rda")
 
 ```
 
+### Prepare Data for Regression with Robustness Check 
+
+Remove rows with percent cropland (NLCD) less than 1.
+
+```{r}
+
+#Create dataframe with just the needed regression variables that are stndardized for comparisons    
+  finaldata_plandcrops<-fulldata %>% 
+  select(FIPS, Year, ERSCode, ASDCode, insect_planted, pland_crops, SDI,
+         largefarm_planted, mna_crops, natural_crops_ed, msidi,
+         soysmallgrain_planted, corn_planted, fruitveg_planted,
+         forest_crops_ed, shrubgrass_crops_ed) %>% 
+  filter(pland_crops>1) %>% 
+  mutate_at(scale, .vars=vars(-FIPS, -Year, -ERSCode, -ASDCode, -insect_planted)) #Scale by subtracting column mean and dividing by column SD
+
+#Remove rows with NA value for ASDcode (there are none)
+
+#Write finaldata_plandcrops to df folder (best place to store even though in Analysis script) to pulled for later regressions
+    write_csv(finaldata_plandcrops, "Data/DataProcessing/df/finaldata_plandcrops.csv")
+    save(finaldata_plandcrops, file = "Data/DataProcessing/df/finaldata_plandcrops.rda")
+
+
+```
+
 
 ## Run Panel Linear Model Regressions
 Perform the regressions within separate R scripts, perform analyses on the model results, and create dataframes of results across models. The script is sourced directly in the analysis scripts that are used below.
@@ -134,6 +160,8 @@ For more information: https://cran.r-project.org/web/packages/clubSandwich/vigne
 Using car::vif to run variance  variance inflation factor (vif) to look at multicollinearity between variables 
 (VIF of 1=no correlation among predictors, >4 investigate, >10 serious correction)
 
+Run robust versions using finaldata_plandcrops dataset as well.
+
 
 ### 1) Counties Pooled (cp)
 
@@ -144,6 +172,9 @@ The cpmodels script performs the lm models for all counties pooled together and 
 
 #Script runs the counties pooled (cp) regression models scripts that creates dataframe outputs (models not saved)
 source("R/Analysis/cpmodels.R") 
+
+#Script runs the counties pooled (cp) regression models scripts that creates dataframe outputs (models not saved) for robustness checks (finaldata_plandcrops)
+source("R/Analysis/cpmodels_plandcrops.R") 
 
 ```
 
@@ -170,6 +201,9 @@ The ERSmodels script performs the lm models for counties interacted with ERS reg
 
 #Script runs the ERS (cp) regression models interacted by ERS that creates tidy dataframes (models not saved)
 source("R/Analysis/ERSmodels.R")
+
+#Script runs the ERS (cp) regression models interacted by ERS that creates tidy dataframes (models not saved) for robustness checks (finaldata_plandcrops)
+source("R/Analysis/ERSmodels_plandcrops.R")
 
 
 ```
