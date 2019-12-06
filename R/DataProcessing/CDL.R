@@ -38,10 +38,12 @@
     #Read in crosswalk between category type name and category number name
     crosswalk<-readr::read_csv("Data/DataProcessing/CDL/CDL_crosswalk.csv")
 
-    #Read in csvs for the years 2008, 2012, 2016 (1997 and 2002 not available and 2007 incomplete), in acres
+    #Read in csvs for the years 2008, 2012, 2017 (1997 and 2002 not available and 2007 incomplete), in acres
     CDL_2008_acres<-readr::read_csv("Data/DataProcessing/CDL/County_Pixel_Count/CDL_Cnty_Acres_2008.csv")
     CDL_2012_acres<-readr::read_csv("Data/DataProcessing/CDL/County_Pixel_Count/CDL_Cnty_Acres_2012.csv")
-    CDL_2016_acres<-readr::read_csv("Data/DataProcessing/CDL/County_Pixel_Count/CDL_Cnty_Acres_2016.csv")
+    # CDL_2016_acres<-readr::read_csv("Data/DataProcessing/CDL/County_Pixel_Count/CDL_Cnty_Acres_2016.csv")
+    CDL_2017_acres<-readr::read_csv("Data/DataProcessing/CDL/County_Pixel_Count/CDL_Cnty_Acres_2017.csv")
+    
 
 #Cleanup CDL datasets by year
     #Remove the subcategories already accounted for in the all categories (some in multiple categories so only removed in the first category listed)
@@ -69,21 +71,34 @@
       dplyr::select(-c(Category_209,Category_231)) %>% #remove canteloupe subcategories
       dplyr::select(-c(Category_227)) #remove letuce subcategories
     
-    CDL_2016_acres_all<-CDL_2016_acres %>% 
+    # CDL_2016_acres_all<-CDL_2016_acres %>% 
+    #   dplyr::select(-c(Category_001,Category_225,Category_226,Category_237,Category_241)) %>% #remove corn subcategories
+    #   dplyr::select(-c(Category_002,Category_232,Category_238)) %>% #remove cotton subcategories (no 239 in dataset so removed)
+    #   dplyr::select(-c(Category_004,Category_236)) %>% #remove sorghum subcategories (no Category_234 or no 235 in dataset so removed)
+    #   dplyr::select(-c(Category_005,Category_026,Category_240,Category_254)) %>% #remove soybeans subcategories
+    #   dplyr::select(-c(Category_021)) %>% #remove barley subcategories #no 233 so removed
+    #   dplyr::select(-c(Category_022)) %>% #remove wheat durum subcategories # no Category_230
+    #   dplyr::select(-c(Category_024)) %>% #remove wheat winter subcategories
+    #   dplyr::select(-c(Category_028)) %>% #remove oat subcategories
+    #   dplyr::select(-c(Category_209)) %>% #remove canteloupe subcategories # no Category_231
+    #   dplyr::select(-c(Category_227)) #remove letuce subcategories
+    
+    CDL_2017_acres_all<-CDL_2017_acres %>% 
       dplyr::select(-c(Category_001,Category_225,Category_226,Category_237,Category_241)) %>% #remove corn subcategories
-      dplyr::select(-c(Category_002,Category_232,Category_238)) %>% #remove cotton subcategories (no 239 in dataset so removed)
-      dplyr::select(-c(Category_004,Category_236)) %>% #remove sorghum subcategories (no Category_234 or no 235 in dataset so removed)
+      dplyr::select(-c(Category_002,Category_232,Category_238, Category_239)) %>% #remove cotton subcategories 
+      dplyr::select(-c(Category_004,Category_236)) %>% #remove sorghum subcategories # no Category_234 or Category_235
       dplyr::select(-c(Category_005,Category_026,Category_240,Category_254)) %>% #remove soybeans subcategories
-      dplyr::select(-c(Category_021)) %>% #remove barley subcategories #no 233 so removed
-      dplyr::select(-c(Category_022)) %>% #remove wheat durum subcategories # no Category_230
+      dplyr::select(-c(Category_021, Category_233)) %>% #remove barley subcategories 
+      dplyr::select(-c(Category_022)) %>% #remove wheat durum subcategories #no Category_230
       dplyr::select(-c(Category_024)) %>% #remove wheat winter subcategories
       dplyr::select(-c(Category_028)) %>% #remove oat subcategories
-      dplyr::select(-c(Category_209)) %>% #remove canteloupe subcategories # no Category_231
+      dplyr::select(-c(Category_209,Category_231)) %>% #remove canteloupe subcategories
       dplyr::select(-c(Category_227)) #remove letuce subcategories
-    
 #Clean dataframe column names by applying crosswalk function
     #Create list of three dataframes in order
-    cdl_list<-list(CDL_2008=CDL_2008_acres_all, CDL_2012=CDL_2012_acres_all, CDL_2016=CDL_2016_acres_all)
+    #cdl_list<-list(CDL_2008=CDL_2008_acres_all, CDL_2012=CDL_2012_acres_all, CDL_2016=CDL_2016_acres_all)
+    cdl_list<-list(CDL_2008=CDL_2008_acres_all, CDL_2012=CDL_2012_acres_all, CDL_2017=CDL_2017_acres_all)
+    
     
     #Create crosswalk function and apply to list to rename dataframe columns
     crosswalk_function<-function(c){
@@ -125,20 +140,24 @@
     cdl_df<-lapply(cdl_listed, calculate_diversity)
   
 #Combine three dataframes into one
-    #Create dataframe for each one in order to add year columns first (Order of dataframes is 2008, 2012, 2016)
+    #Create dataframe for each one in order to add year columns first (Order of dataframes is 2008, 2012, 2017)
     cdl_2008<-cdl_df[[1]]
     cdl_2012<-cdl_df[[2]]
-    cdl_2016<-cdl_df[[3]]
+    #cdl_2016<-cdl_df[[3]]
+    cdl_2017<-cdl_df[[3]]
 
-    #Add year column to each of the dataframes (set 2008 as 2007, 2012 as 2012, and 2016 as 2017)
+    #Add year column to each of the dataframes (set 2008 as 2007, 2012 as 2012, and 2017 as 2017)
     cdl_2008$Year<-"2007"
     cdl_2012$Year<-"2012"
-    cdl_2016$Year<-"2017"
+    #cdl_2016$Year<-"2017"
+    cdl_2017$Year<-"2017"
 
     #Select only fips, Year, and simpson_diversity metrics from each dataframe (some years have different columns)
     cdl2007<-cdl_2008[, c("fips", "Year", "simpson_diversity")]
     cdl2012<-cdl_2012[, c("fips", "Year", "simpson_diversity")]
-    cdl2017<-cdl_2016[, c("fips", "Year", "simpson_diversity")]
+    #cdl2017<-cdl_2016[, c("fips", "Year", "simpson_diversity")]
+    cdl2017<-cdl_2017[, c("fips", "Year", "simpson_diversity")]
+    
 
     #Combine all the dataframes together and format
     cdl<-rbind(cdl2007,cdl2012,cdl2017) %>% 

@@ -74,7 +74,7 @@ CDL datasets were downloaded as a zip folder of csvs from the USDA National Agri
 The columns of the csvs are category numbers, which were crosswalked to the crop name using the CDL_crosswalk.csv found under Data/DataProcessing/CDL, which was created from data retrieved from:https://www.nass.usda.gov/Research_and_Science/Cropland/docs/CDL_2013_crosswalk.php. 
 
 
-The total cropland area per county by crop type was summed for the years of interest (2008, 2012, and 2016 to best match other datasets) and then Simpson's diversity index was performed to get a measure of crop diversity per county. Crop acreage accounts for double cropping and crop rotation situations (i.e. counts acreage again if it was used for another crop).
+The total cropland area per county by crop type was summed for the years of interest (2008, 2012, and 2017 to best match other datasets) and then Simpson's diversity index was performed to get a measure of crop diversity per county. Crop acreage accounts for double cropping and crop rotation situations (i.e. counts acreage again if it was used for another crop).
 
 More information as well as the caluclations for crop diversity can be found in the R/DataProcessing/CDL.R script.
 
