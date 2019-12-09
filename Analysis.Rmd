@@ -1,0 +1,521 @@
+---
+title: "Analysis"
+author: "Sofie McComb"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+This R Markdown document will perform the panel linear model regressions for determining the relationship of agricultural and landscape variables on insectide use.
+
+Twoways (individual and time) fixed effects models will be run for each regression. Individual will be represented by ASDCode and time will be represented by year.
+
+Using broom package to put plm model informatino into tidy dataframe format. 
+For more information: https://cran.r-project.org/web/packages/broom/vignettes/broom.html
+
+Using clubsandwih package to perform cluster-robust standard errors in tidy format.
+For more information: https://cran.r-project.org/web/packages/clubSandwich/vignettes/panel-data-CRVE.html
+
+Using car::vif to run variance  variance inflation factor (vif) to look at multicollinearity between variables 
+(VIF of 1=no correlation among predictors, >4 investigate, >10 serious correction)
+
+ 
+## Data Preparation
+
+This section will load the necessary packages and data
+
+#### Load Packages
+
+```{r packages, message=F, warning=F}
+
+#Load the needed packages (install first if necessary)
+library(tidyverse) #Datatable manipulation
+library(purrr) #For reduce function using full_join
+library(car) # For calculating variance inflation factors (vif)
+library(broom) #Convert statistical analysis into df
+library(reshape2)#For wide to long data format
+library(clubSandwich) #for coeftest (cluster robust standard errors)
+
+#Set options
+options(scipen=999) #no scientific notation (all)
+
+```
+
+
+#### Load Data
+
+Loading the fulldata dataset created in the DataProcessing.Rmd, which was developed to perform the regression analyses.
+
+```{r data, message=F, warning=F}
+
+load("Data/DataProcessing/df/fulldata.rda")
+
+```
+
+
+## Panel Regression Analyses
+
+### Landscape composition and configuration
+Variables: Percent crop, edge density crops, mean patch size crops, large farms, 3 crop covariates
+4 models total with counties pooled to account for crops vs no crops, and 4 yrs vs 3 years of data
+
+  pland_crops=Percentage of county with cropland area, in percent 
+  ed_crops=edge density of crops, in meters/hectares
+  mna_crops= Mean patch size of cropland, in hectares
+  largefarm_planted= Acreage of harvested acres for farms >500acres divided by acreage planted cropland, in acres/acres 
+  
+  Crop covariates:
+  soysmallgrain_planted= acreage of soy/small grain divided by acreage planted cropland, in acres/acres
+  corn_planted=acreage of corn divided by acreage planted cropland, in acres/acres
+  fruitveg_planted=acreage of fruit and vegetables divided by acreage planted cropland, in acres/acres
+
+
+
+```{r}
+
+#Models examining landscape composition and configuration
+#Model 1: no crops, 4 years of data: nocrops_4yrs
+#Model 2: no crops, 3 years of data: nocrop_3yrs
+#Model 3: crops, 4 years of data: crops_4yrs
+#Model 4: crops, 3 years of data: crops_3yrs
+
+###############################################
+#Model1: nocrops_4yrs
+data_nocrops_4yrs<-fulldata %>% 
+  select(FIPS, Year, ASDCode, ERSCode,
+         insect_planted, pland_crops, ed_crops, mna_crops, largefarm_planted) %>% 
+  na.omit() %>% #11989 observations
+  mutate_at(scale, .vars=vars(-FIPS, -Year, -ERSCode, -ASDCode, -insect_planted)) %>%  #Scale by subtracting column mean and dividing by column SD
+    rename(Insecticide=insect_planted,
+         PercentCrop=pland_crops,
+         CropEdge=ed_crops,
+         MeanCropArea=mna_crops,
+         LargeFarms=largefarm_planted)
+
+lm_nocrops_4yrs<-lm(Insecticide~PercentCrop+CropEdge+MeanCropArea+LargeFarms+factor(Year)+factor(ASDCode), data=data_nocrops_4yrs)
+df_nocrops_4yrs<-broom::tidy(lm_nocrops_4yrs) %>% 
+  mutate(model="nocrops_4yrs") %>% 
+  dplyr::filter(!stringr::str_detect(term, "(Intercept)"),
+                !stringr::str_detect(term, "factor"))
+df_coef_nocrops_4yrs<-lm_nocrops_4yrs %>% 
+  clubSandwich::coef_test(vcov = "CR2", cluster = data_nocrops_4yrs$ASDCode, test = "Satterthwaite") %>% 
+  tibble::rownames_to_column(var = "term") %>% 
+  rename(estimate=beta, std.error=SE, statistic=tstat, p.value=p_Satt) %>% 
+  dplyr::mutate(model="nocrops_4yrs") %>% 
+  dplyr::filter(!stringr::str_detect(term, "(Intercept)"),
+                !stringr::str_detect(term, "factor"))
+vif_nocrops_4yrs<-rownames_to_column(as.data.frame(car::vif(lm_nocrops_4yrs)), "term") %>% 
+    dplyr::mutate(model="nocrops_4yrs")
+###############################################
+
+
+###############################################
+#Model2: nocrops_3yrs
+data_nocrops_3yrs<-fulldata %>% 
+  select(FIPS, Year, ASDCode, ERSCode,
+         insect_planted, pland_crops, ed_crops, mna_crops, largefarm_planted) %>% 
+  filter(!Year==2002)%>% #Only 3 years of data, to later match with crop diversity
+  na.omit() %>% #8984 observations
+  mutate_at(scale, .vars=vars(-FIPS, -Year, -ERSCode, -ASDCode, -insect_planted)) %>%  #Scale by subtracting column mean and dividing by column SD
+    rename(Insecticide=insect_planted,
+         PercentCrop=pland_crops,
+         CropEdge=ed_crops,
+         MeanCropArea=mna_crops,
+         LargeFarms=largefarm_planted)
+
+lm_nocrops_3yrs<-lm(Insecticide~PercentCrop+CropEdge+MeanCropArea+LargeFarms+factor(Year)+factor(ASDCode), data=data_nocrops_3yrs)
+df_nocrops_3yrs<-broom::tidy(lm_nocrops_3yrs) %>% 
+  mutate(model="nocrops_3yrs") %>% 
+  dplyr::filter(!stringr::str_detect(term, "(Intercept)"),
+                !stringr::str_detect(term, "factor"))
+df_coef_nocrops_3yrs<-lm_nocrops_3yrs %>% 
+  clubSandwich::coef_test(vcov = "CR2", cluster = data_nocrops_3yrs$ASDCode, test = "Satterthwaite") %>% 
+  tibble::rownames_to_column(var = "term") %>% 
+  rename(estimate=beta, std.error=SE, statistic=tstat, p.value=p_Satt) %>% 
+  dplyr::mutate(model="nocrops_3yrs") %>% 
+  dplyr::filter(!stringr::str_detect(term, "(Intercept)"),
+                !stringr::str_detect(term, "factor"))
+vif_nocrops_3yrs<-rownames_to_column(as.data.frame(car::vif(lm_nocrops_3yrs)), "term") %>% 
+    dplyr::mutate(model="nocrops_3yrs")
+###############################################
+
+
+###############################################
+#Model3: crops_4yrs
+data_crops_4yrs<-fulldata %>% 
+  select(FIPS, Year, ASDCode, ERSCode,
+         insect_planted, pland_crops, ed_crops, mna_crops, largefarm_planted,
+         soysmallgrain_planted, corn_planted, fruitveg_planted) %>% 
+  na.omit() %>% #11924 observations
+  mutate_at(scale, .vars=vars(-FIPS, -Year, -ERSCode, -ASDCode, -insect_planted)) %>%  #Scale by subtracting column mean and dividing by column SD
+    rename(Insecticide=insect_planted,
+         PercentCrop=pland_crops,
+         CropEdge=ed_crops,
+         MeanCropArea=mna_crops,
+         LargeFarms=largefarm_planted,
+         SoyGrains=soysmallgrain_planted,
+         Corn=corn_planted,
+         FruitVeg=fruitveg_planted)
+
+lm_crops_4yrs<-lm(Insecticide~PercentCrop+CropEdge+MeanCropArea+LargeFarms+
+                    SoyGrains+Corn+FruitVeg+factor(Year)+factor(ASDCode), data=data_crops_4yrs)
+df_crops_4yrs<-broom::tidy(lm_crops_4yrs) %>% 
+  mutate(model="crops_4yrs") %>% 
+  dplyr::filter(!stringr::str_detect(term, "(Intercept)"),
+                !stringr::str_detect(term, "factor"))
+df_coef_crops_4yrs<-lm_crops_4yrs %>% 
+  clubSandwich::coef_test(vcov = "CR2", cluster = data_crops_4yrs$ASDCode, test = "Satterthwaite") %>% 
+  tibble::rownames_to_column(var = "term") %>% 
+  rename(estimate=beta, std.error=SE, statistic=tstat, p.value=p_Satt) %>% 
+  dplyr::mutate(model="crops_4yrs") %>% 
+  dplyr::filter(!stringr::str_detect(term, "(Intercept)"),
+                !stringr::str_detect(term, "factor"))
+vif_crops_4yrs<-rownames_to_column(as.data.frame(car::vif(lm_crops_4yrs)), "term") %>% 
+    dplyr::mutate(model="crops_4yrs")
+###############################################
+
+
+###############################################
+#Model4: crops_3yrs
+data_crops_3yrs<-fulldata %>% 
+  select(FIPS, Year, ASDCode, ERSCode,
+         insect_planted, pland_crops, ed_crops, mna_crops, largefarm_planted,
+         soysmallgrain_planted, corn_planted, fruitveg_planted) %>% 
+    filter(!Year==2002)%>% #Only 3 years of data, to later match with crop diversity
+  na.omit() %>% #8939 observations
+  mutate_at(scale, .vars=vars(-FIPS, -Year, -ERSCode, -ASDCode, -insect_planted)) %>%  #Scale by subtracting column mean and dividing by column SD
+    rename(Insecticide=insect_planted,
+         PercentCrop=pland_crops,
+         CropEdge=ed_crops,
+         MeanCropArea=mna_crops,
+         LargeFarms=largefarm_planted,
+         SoyGrains=soysmallgrain_planted,
+         Corn=corn_planted,
+         FruitVeg=fruitveg_planted)
+
+lm_crops_3yrs<-lm(Insecticide~PercentCrop+CropEdge+MeanCropArea+LargeFarms+
+                    SoyGrains+Corn+FruitVeg+factor(Year)+factor(ASDCode), data=data_crops_3yrs)
+df_crops_3yrs<-broom::tidy(lm_crops_3yrs) %>% 
+  mutate(model="crops_3yrs") %>% 
+  dplyr::filter(!stringr::str_detect(term, "(Intercept)"),
+                !stringr::str_detect(term, "factor"))
+df_coef_crops_3yrs<-lm_crops_3yrs %>% 
+  clubSandwich::coef_test(vcov = "CR2", cluster = data_crops_3yrs$ASDCode, test = "Satterthwaite") %>% 
+  tibble::rownames_to_column(var = "term") %>% 
+  rename(estimate=beta, std.error=SE, statistic=tstat, p.value=p_Satt) %>% 
+  dplyr::mutate(model="crops_3yrs") %>% 
+  dplyr::filter(!stringr::str_detect(term, "(Intercept)"),
+                !stringr::str_detect(term, "factor"))
+vif_crops_3yrs<-rownames_to_column(as.data.frame(car::vif(lm_crops_3yrs)), "term") %>% 
+    dplyr::mutate(model="crops_3yrs")
+###############################################
+
+
+#Combine and save the models
+basemodels_df<-rbind(df_nocrops_4yrs, df_nocrops_3yrs, df_crops_4yrs, df_crops_3yrs)
+basemodels_df_coef<-rbind(df_coef_nocrops_4yrs, df_coef_nocrops_3yrs, df_coef_crops_4yrs, df_coef_crops_3yrs)
+basemodels_vif<-rbind(vif_nocrops_4yrs, vif_nocrops_3yrs, vif_crops_4yrs, vif_crops_3yrs)
+
+#Write csv for each of the created dataframes
+write_csv(basemodels_df, "Data/Analysis/df/basemodels_df.csv")
+write_csv(basemodels_df_coef, "Data/Analysis/df/basemodels_df_coef.csv")
+write_csv(basemodels_vif, "Data/Analysis/df/basemodels_vif.csv")
+
+
+
+```
+
+
+### Diversity
+Add in landscape diversity and crop diversity to crops_3yrs model from previous step
+
+  SDI=Simpson's Crop diversity, 0-1 value
+  msidi=Simpson's landscape diversity, 0-1 value 
+
+
+```{r}
+
+#Similar to crops_3yrs, but adding diversity
+data_diversity<-fulldata %>% 
+  select(FIPS, Year, ASDCode, ERSCode,
+         insect_planted, pland_crops, ed_crops, mna_crops, largefarm_planted,
+         soysmallgrain_planted, corn_planted, fruitveg_planted,
+         msidi, SDI) %>% 
+    filter(!Year==2002)%>% #Only 3 years of data
+  na.omit() %>% #8939 observations (match crops_3yrs)
+  mutate_at(scale, .vars=vars(-FIPS, -Year, -ERSCode, -ASDCode, -insect_planted)) %>%  #Scale by subtracting column mean and dividing by column SD
+    rename(Insecticide=insect_planted,
+         PercentCrop=pland_crops,
+         CropEdge=ed_crops,
+         MeanCropArea=mna_crops,
+         LargeFarms=largefarm_planted,
+         SoyGrains=soysmallgrain_planted,
+         Corn=corn_planted,
+         FruitVeg=fruitveg_planted,
+         LandDiversity=msidi,
+         CropDiversity=SDI)
+
+lm_diversity<-lm(Insecticide~PercentCrop+CropEdge+MeanCropArea+LargeFarms+
+                  SoyGrains+Corn+FruitVeg+LandDiversity+CropDiversity+
+                  factor(Year)+factor(ASDCode), data=data_diversity)
+df_diversity<-broom::tidy(lm_diversity) %>% 
+  mutate(model="diversity") %>% 
+  dplyr::filter(!stringr::str_detect(term, "(Intercept)"),
+                !stringr::str_detect(term, "factor"))
+df_coef_diversity<-lm_diversity %>% 
+  clubSandwich::coef_test(vcov = "CR2", cluster = data_diversity$ASDCode, test = "Satterthwaite") %>% 
+  tibble::rownames_to_column(var = "term") %>% 
+  rename(estimate=beta, std.error=SE, statistic=tstat, p.value=p_Satt) %>% 
+  dplyr::mutate(model="diversity") %>% 
+  dplyr::filter(!stringr::str_detect(term, "(Intercept)"),
+                !stringr::str_detect(term, "factor"))
+vif_diversity<-rownames_to_column(as.data.frame(car::vif(lm_diversity)), "term") %>% 
+    mutate(model="diversity")
+
+#Write csv for each of the created dataframes
+write_csv(df_diversity, "Data/Analysis/df/df_diversity.csv")
+write_csv(df_coef_diversity, "Data/Analysis/df/df_coef_diversity.csv") 
+write_csv(vif_diversity, "Data/Analysis/df/vif_diversity.csv")
+
+
+```
+
+
+
+### Edge Density Interactions
+Replace crop edge with specific edge types (natural-crop edge, forest-crop edge shrubgrass-crop edge) to examine how results change based on edge interactions
+
+  natural_crops_ed= Shared edge length between natural land and cropland divided by the total county area, in meters/hectares [edge density]
+  forest_crops_ed= Shared edge length between forest land and cropland divided by the total county area, in meters/hectares [edge density]
+  shrubgrass_crops_ed= Shared edge length between shrubgrass land and cropland divided by the total county area, in meters/hectares [edge     density]
+
+```{r}
+
+###############################################
+#Edge 1: Natural-Crop Edge
+data_natural<-fulldata %>% 
+  select(FIPS, Year, ASDCode, ERSCode,
+         insect_planted, pland_crops, natural_crops_ed, mna_crops, largefarm_planted,
+         soysmallgrain_planted, corn_planted, fruitveg_planted,
+         msidi, SDI) %>% 
+    filter(!Year==2002)%>% #Only 3 years of data
+  na.omit() %>% #8939 observations (match crops_3yrs and diversity)
+  mutate_at(scale, .vars=vars(-FIPS, -Year, -ERSCode, -ASDCode, -insect_planted)) %>%  #Scale by subtracting column mean and dividing by column SD
+    rename(Insecticide=insect_planted,
+         PercentCrop=pland_crops,
+         NaturalCropEdge=natural_crops_ed,
+         MeanCropArea=mna_crops,
+         LargeFarms=largefarm_planted,
+         SoyGrains=soysmallgrain_planted,
+         Corn=corn_planted,
+         FruitVeg=fruitveg_planted,
+         LandDiversity=msidi,
+         CropDiversity=SDI)
+
+lm_natural<-lm(Insecticide~PercentCrop+NaturalCropEdge+MeanCropArea+LargeFarms+
+                  SoyGrains+Corn+FruitVeg+LandDiversity+CropDiversity+
+                  factor(Year)+factor(ASDCode), data=data_natural)
+df_natural<-broom::tidy(lm_natural) %>% 
+  mutate(model="natural") %>% 
+  dplyr::filter(!stringr::str_detect(term, "(Intercept)"),
+                !stringr::str_detect(term, "factor"))
+df_coef_natural<-lm_natural %>% 
+  clubSandwich::coef_test(vcov = "CR2", cluster = data_natural$ASDCode, test = "Satterthwaite") %>% 
+  tibble::rownames_to_column(var = "term") %>% 
+  rename(estimate=beta, std.error=SE, statistic=tstat, p.value=p_Satt) %>% 
+  dplyr::mutate(model="natural") %>% 
+  dplyr::filter(!stringr::str_detect(term, "(Intercept)"),
+                !stringr::str_detect(term, "factor"))
+vif_natural<-rownames_to_column(as.data.frame(car::vif(lm_natural)), "term") %>% 
+    dplyr::mutate(model="natural")
+###############################################
+
+###############################################
+#Edge 2: Forest-Crop Edge
+data_forest<-fulldata %>% 
+  select(FIPS, Year, ASDCode, ERSCode,
+         insect_planted, pland_crops, forest_crops_ed, mna_crops, largefarm_planted,
+         soysmallgrain_planted, corn_planted, fruitveg_planted,
+         msidi, SDI) %>% 
+    filter(!Year==2002)%>% #Only 3 years of data
+  na.omit() %>% #8939 observations (match crops_3yrs and diversity)
+  mutate_at(scale, .vars=vars(-FIPS, -Year, -ERSCode, -ASDCode, -insect_planted)) %>%  #Scale by subtracting column mean and dividing by column SD
+    rename(Insecticide=insect_planted,
+         PercentCrop=pland_crops,
+         ForestCropEdge=forest_crops_ed,
+         MeanCropArea=mna_crops,
+         LargeFarms=largefarm_planted,
+         SoyGrains=soysmallgrain_planted,
+         Corn=corn_planted,
+         FruitVeg=fruitveg_planted,
+         LandDiversity=msidi,
+         CropDiversity=SDI)
+
+lm_forest<-lm(Insecticide~PercentCrop+ForestCropEdge+MeanCropArea+LargeFarms+
+                  SoyGrains+Corn+FruitVeg+LandDiversity+CropDiversity+
+                  factor(Year)+factor(ASDCode), data=data_forest)
+df_forest<-broom::tidy(lm_forest) %>% 
+  mutate(model="forest") %>% 
+  dplyr::filter(!stringr::str_detect(term, "(Intercept)"),
+                !stringr::str_detect(term, "factor"))
+df_coef_forest<-lm_forest %>% 
+  clubSandwich::coef_test(vcov = "CR2", cluster = data_forest$ASDCode, test = "Satterthwaite") %>% 
+  tibble::rownames_to_column(var = "term") %>% 
+  rename(estimate=beta, std.error=SE, statistic=tstat, p.value=p_Satt) %>% 
+  dplyr::mutate(model="forest") %>% 
+  dplyr::filter(!stringr::str_detect(term, "(Intercept)"),
+                !stringr::str_detect(term, "factor"))
+vif_forest<-rownames_to_column(as.data.frame(car::vif(lm_forest)), "term") %>% 
+    mutate(model="forest")
+###############################################
+
+###############################################
+#Edge 3: Shrubgrass-Crop Edge
+data_shrubgrass<-fulldata %>% 
+  select(FIPS, Year, ASDCode, ERSCode,
+         insect_planted, pland_crops, shrubgrass_crops_ed, mna_crops, largefarm_planted,
+         soysmallgrain_planted, corn_planted, fruitveg_planted,
+         msidi, SDI) %>% 
+    filter(!Year==2002)%>% #Only 3 years of data
+  na.omit() %>% #8939 observations (match crops_3yrs and diversity)
+  mutate_at(scale, .vars=vars(-FIPS, -Year, -ERSCode, -ASDCode, -insect_planted)) %>%  #Scale by subtracting column mean and dividing by column SD
+    rename(Insecticide=insect_planted,
+         PercentCrop=pland_crops,
+         ShrubgrassCropEdge=shrubgrass_crops_ed,
+         MeanCropArea=mna_crops,
+         LargeFarms=largefarm_planted,
+         SoyGrains=soysmallgrain_planted,
+         Corn=corn_planted,
+         FruitVeg=fruitveg_planted,
+         LandDiversity=msidi,
+         CropDiversity=SDI)
+
+lm_shrubgrass<-lm(Insecticide~PercentCrop+ShrubgrassCropEdge+MeanCropArea+LargeFarms+
+                  SoyGrains+Corn+FruitVeg+LandDiversity+CropDiversity+
+                  factor(Year)+factor(ASDCode), data=data_shrubgrass)
+df_shrubgrass<-broom::tidy(lm_shrubgrass) %>% 
+  mutate(model="shrubgrass") %>% 
+  dplyr::filter(!stringr::str_detect(term, "(Intercept)"),
+                !stringr::str_detect(term, "factor"))
+df_coef_shrubgrass<-lm_shrubgrass %>% 
+  clubSandwich::coef_test(vcov = "CR2", cluster = data_shrubgrass$ASDCode, test = "Satterthwaite") %>% 
+  tibble::rownames_to_column(var = "term") %>% 
+  rename(estimate=beta, std.error=SE, statistic=tstat, p.value=p_Satt) %>% 
+  dplyr::mutate(model="shrubgrass") %>% 
+  dplyr::filter(!stringr::str_detect(term, "(Intercept)"),
+                !stringr::str_detect(term, "factor"))
+vif_shrubgrass<-rownames_to_column(as.data.frame(car::vif(lm_shrubgrass)), "term") %>% 
+    mutate(model="shrubgrass")
+###############################################
+
+
+#Combine and save the models
+edgemodels_df<-rbind(df_natural, df_forest, df_shrubgrass)
+edgemodels_df_coef<-rbind(df_coef_natural, df_coef_forest, df_coef_shrubgrass)
+edgemodels_vif<-rbind(vif_natural, vif_forest, vif_shrubgrass)
+
+#Write csv for each of the created dataframes
+write_csv(edgemodels_df, "Data/Analysis/df/edgemodels_df.csv")
+write_csv(edgemodels_df_coef, "Data/Analysis/df/edgemodels_df_coef.csv")
+write_csv(edgemodels_vif, "Data/Analysis/df/edgemodels_vif.csv")
+
+
+
+```
+
+
+
+### Regional Diversity (ERS)
+Run best model from above steps interacted with Economic Research Service (ERS) Farm Resource Regions to examine regional change 
+
+The ERS zones are:  
+
+1. Heartland
+2. Northern Crescent 
+3. Northern Great Plains
+4. Prairie Gateway
+5. Eastern Uplands 
+6. Southern Seaboard
+7. Fruitful Rim
+8. Basin and Range 
+9. Mississippi Portal
+
+```{r}
+
+#Examine regional effects with ERS
+data_regional<-fulldata %>% 
+  select(FIPS, Year, ASDCode, ERSCode,
+         insect_planted, pland_crops, natural_crops_ed, mna_crops, largefarm_planted,
+         soysmallgrain_planted, corn_planted, fruitveg_planted,
+         msidi, SDI) %>% 
+    mutate(ERSCode=factor(ERSCode)) %>% 
+    filter(!Year==2002)%>% #Only 3 years of data
+  na.omit() %>% #8939 observations (match crops_3yrs and diversity)
+  mutate_at(scale, .vars=vars(-FIPS, -Year, -ERSCode, -ASDCode, -insect_planted)) %>%  #Scale by subtracting column mean and dividing by column SD
+    rename(Insecticide=insect_planted,
+         PercentCrop=pland_crops,
+         NaturalCropEdge=natural_crops_ed,
+         MeanCropArea=mna_crops,
+         LargeFarms=largefarm_planted,
+         SoyGrains=soysmallgrain_planted,
+         Corn=corn_planted,
+         FruitVeg=fruitveg_planted,
+         LandDiversity=msidi,
+         CropDiversity=SDI)
+
+lm_regional<-lm(Insecticide~PercentCrop*ERSCode+NaturalCropEdge*ERSCode+MeanCropArea*ERSCode+LargeFarms*ERSCode+
+                  SoyGrains*ERSCode+Corn*ERSCode+FruitVeg*ERSCode+LandDiversity*ERSCode+CropDiversity*ERSCode+
+                  factor(Year)+factor(ASDCode), data=data_regional)
+df_regional<-broom::tidy(lm_regional) %>% 
+  mutate(model="regional") %>% 
+  dplyr::filter(!stringr::str_detect(term, "(Intercept)"),
+                !stringr::str_detect(term, "factor")) %>% 
+    dplyr::filter(!term=="ERSCode2"&!term=="ERSCode3"&!term=="ERSCode4"&
+                  !term=="ERSCode5"&!term=="ERSCode6"&!term=="ERSCode7"&
+                  !term=="ERSCode8"&!term=="ERSCode9") %>%
+  separate(term, c("ERS", "term"), ":") %>% 
+  mutate(term = gsub("ERSCode", "", term),
+         ERS = gsub("ERSCode", "", ERS),
+         term = replace_na(term, 1),
+         reference=term) %>% 
+  transform(term = ifelse(ERS == 'PercentCrop', ERS, reference),
+            ERS = ifelse(ERS == 'PercentCrop', reference, ERS)) %>% 
+  transform(term=ifelse(term=="1", ERS, term),
+            ERS=ifelse(reference=="1", reference, ERS)) %>% 
+  select(-reference) %>% 
+  select(term, everything()) %>% 
+  arrange(model, term,ERS)
+df_coef_regional<-lm_regional %>% 
+  clubSandwich::coef_test(vcov = "CR2", cluster = data_regional$ASDCode, test = "Satterthwaite") %>% 
+  tibble::rownames_to_column(var = "term") %>% 
+  rename(estimate=beta, std.error=SE, statistic=tstat, p.value=p_Satt) %>% 
+  dplyr::mutate(model="regional") %>% 
+  dplyr::filter(!stringr::str_detect(term, "(Intercept)"),
+                !stringr::str_detect(term, "factor")) %>% 
+    dplyr::filter(!term=="ERSCode2"&!term=="ERSCode3"&!term=="ERSCode4"&
+                  !term=="ERSCode5"&!term=="ERSCode6"&!term=="ERSCode7"&
+                  !term=="ERSCode8"&!term=="ERSCode9") %>% 
+  separate(term, c("ERS", "term"), ":") %>% 
+  mutate(term = gsub("ERSCode", "", term),
+         ERS = gsub("ERSCode", "", ERS),
+         term = replace_na(term, 1),
+         reference=term) %>% 
+  transform(term = ifelse(ERS == 'PercentCrop', ERS, reference),
+            ERS = ifelse(ERS == 'PercentCrop', reference, ERS)) %>% 
+  transform(term=ifelse(term=="1", ERS, term),
+            ERS=ifelse(reference=="1", reference, ERS)) %>% 
+  select(-reference) %>% 
+  select(term, everything()) %>% 
+  arrange(model, term,ERS)
+# vif_regional<-rownames_to_column(as.data.frame(car::vif(lm_regional)), "term") #(doesn't work because aliased coefficients in the model)
+
+
+#Write csv for each of the created dataframes
+write_csv(df_regional, "Data/Analysis/df/df_regional.csv")
+write_csv(df_coef_regional, "Data/Analysis/df/df_coef_regional.csv") 
+
+
+```
+

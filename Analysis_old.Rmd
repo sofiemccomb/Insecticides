@@ -147,7 +147,7 @@ Current versions of regressions to be performed for both pooled counties and by 
 4. All secondary crop covariates included, for the three options above
 
  
-Twoways (individual and time) fixed effects models will be run for each regression. Individual will be represented by ASDCode and time will be represetned by year.
+Twoways (individual and time) fixed effects models will be run for each regression. Individual will be represented by ASDCode and time will be represented by year.
 
 Metadata available as Data/Analysis/df/DF_Metadata.txt. File generally describes the columns available in each of the created csv outputs under Data/Analysis/df subfolders. 
 
