@@ -1,8 +1,0 @@
-The ERS_all.csv provides the summary results from the ERS models, and is created by the Analysis.Rmd. 
-
-The tidy function from the broom package was used to construct a dataframe summarizing the statistical findings of each model.
-The columns include: term, estimate, std.error, statistic, p.value, model, and ERS. 
-Term provides the character predictor variable name, estimate is the model coefficient, std. error is the error around
-	the coefficient, statistic is the t-value, p.value is the p-value, model gives the
-	the model name (represents what combination of variables and other details were run),
-	and ERS gives the ERScode to represent the farm resource region being run.
