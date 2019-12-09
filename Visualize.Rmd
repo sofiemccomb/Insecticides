@@ -8,3 +8,176 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
+This R Markdown will be used to visualize the data and results developed from the Analysis.Rmd.
+
+### Load Packages
+
+```{r packages, message=F, warning=F}
+
+#Load the needed packages (install first if necessary)
+library(ggplot2) #data visualization
+library(ggpubr)#To arrange ggplots on a page
+library(stringr)#String detection
+library(tidyverse) #Datatable manipulation (all functions)
+library(dotwhisker) #relabel predictors
+
+#Set options
+  options(scipen=999) #no scientific notation (all)
+
+```
+
+### Load Data
+
+```{r load data, message=F, warning=F}
+
+#Load fulldata
+load("Data/DataProcessing/df/fulldata.rda")
+
+#Coef results
+basemodels_df_coef<-readr::read_csv("Data/Analysis/df/basemodels_df_coef.csv")
+df_coef_diversity<-readr::read_csv("Data/Analysis/df/df_coef_diversity.csv")
+edgemodels_df_coef<-readr::read_csv("Data/Analysis/df/edgemodels_df_coef.csv")
+df_coef_regional<-readr::read_csv("Data/Analysis/df/df_coef_regional.csv")
+
+```
+
+##Boxplots of variables
+
+### Boxplots of time trends of covariates
+
+Creating boxplots showing the values for each of the variables being considered in any of the regression models, across the years being considered. Using the fulldata datasets (loaded in the variable_time_boxplots.R script sourced below).
+
+
+```{r var boxplots, message=F, warning=F}
+
+#Source R script to create boxplot visualizations
+source("R/Visualize/variable_time_boxplots.R")
+
+#Create boxplots for variables of interest (NA values will be removed)
+insect_plot<-var_boxplot(variable=fulldata$insect_planted, yaxis="Prop. Cropland w/ Insecticides")
+plandcrops_plot<-var_boxplot(variable=fulldata$pland_crops, yaxis="Prop. of Cty in Cropland")
+edgecrops_plot<-var_boxplot(variable=fulldata$ed_crops, yaxis="Crop Edge Density (m/ha)")
+mnacrops_plot<-var_boxplot(variable=fulldata$mna_crops, yaxis="Avg. Acreage of Crop Patches (ha)")
+largefarm_plot<-var_boxplot(variable=fulldata$largefarm_planted, yaxis="Prop. of Cropland with Lg. Farms")
+soygrain_plot<-var_boxplot(variable=fulldata$soysmallgrain_planted, yaxis="Prop. Soybeans & Sm. Grains")
+corn_plot<-var_boxplot(variable=fulldata$corn_planted, yaxis="Prop. Corn")
+fruitveg_plot<-var_boxplot(variable=fulldata$fruitveg_planted, yaxis="Prop. Fruit & Veg.")
+msidi_plot<-var_boxplot(variable=fulldata$msidi, yaxis="Landscape Diversity")
+SDI_plot<-var_boxplot(variable=fulldata$SDI, yaxis="Crop Diversity")
+ncedge_plot<-var_boxplot(variable=fulldata$natural_crops_ed, yaxis="Natural to Crop Land Edges")
+fcedge_plot<-var_boxplot(variable=fulldata$forest_crops_ed , yaxis="Forest to Crop Land Edges")
+sgcedge_plot<-var_boxplot(variable=fulldata$shrubgrass_crops_ed , yaxis="Shrubland and Grassland to Crop Land Edges")
+
+#Save insecticides plot
+ggexport(insect_plot, filename = "Data/Visualize/boxplots/insecticides_timetrends_boxplots.png")
+
+#Arrange boxplots on one page
+allvarplots<-ggarrange(plandcrops_plot,edgecrops_plot,
+              mnacrops_plot, largefarm_plot, 
+              soygrain_plot, corn_plot, fruitveg_plot,
+              msidi_plot,SDI_plot, 
+             ncedge_plot, fcedge_plot, sgcedge_plot,
+          labels = c("A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K"),
+          ncol = 4, nrow = 3)
+
+#Save the combined variable boxplots page
+ggexport(allvarplots, filename = "Data/Visualize/boxplots/allvariables_timetrends_boxplots.png",
+          width = 1800, height = 1500)
+
+```
+
+
+### Boxplots of spatial trends of covariates
+
+Creating boxplots showing the values for each of the variables being considered in any of the regression models, across the ERS being considered. Using the fulldata datasets (loaded in the variable_spatial_boxplots.R script sourced below).
+
+
+```{r var boxplots, message=F, warning=F}
+
+#Source R script to create boxplot visualizations
+#Load fulldata to pull from
+load("Data/DataProcessing/df/fulldata.rda")
+fulldata_nona<-fulldata %>% 
+  drop_na(ERSCode)
+
+source("R/Visualize/variable_spatial_boxplots.R")
+
+#Create boxplots for variables of interest (NA values will be removed)
+insect_plot<-var_boxplot(variable=fulldata_nona$insect_planted, yaxis="Prop. Cropland w/ Insecticides")
+plandcrops_plot<-var_boxplot(variable=fulldata_nona$pland_crops, yaxis="Prop. of Cty in Cropland")
+edgecrops_plot<-var_boxplot(variable=fulldata_nona$ed_crops, yaxis="Crop Edge Density (m/ha)")
+mnacrops_plot<-var_boxplot(variable=fulldata_nona$mna_crops, yaxis="Avg. Acreage of Crop Patches (ha)")
+largefarm_plot<-var_boxplot(variable=fulldata_nona$largefarm_planted, yaxis="Prop. of Cropland with Lg. Farms")
+soygrain_plot<-var_boxplot(variable=fulldata_nona$soysmallgrain_planted, yaxis="Prop. Soybeans & Sm. Grains")
+corn_plot<-var_boxplot(variable=fulldata_nona$corn_planted, yaxis="Prop. Corn")
+fruitveg_plot<-var_boxplot(variable=fulldata_nona$fruitveg_planted, yaxis="Prop. Fruit & Veg.")
+msidi_plot<-var_boxplot(variable=fulldata_nona$msidi, yaxis="Landscape Diversity")
+SDI_plot<-var_boxplot(variable=fulldata_nona$SDI, yaxis="Crop Diversity")
+ncedge_plot<-var_boxplot(variable=fulldata_nona$natural_crops_ed, yaxis="Natural to Crop Land Edges")
+fcedge_plot<-var_boxplot(variable=fulldata_nona$forest_crops_ed , yaxis="Forest to Crop Land Edges")
+sgcedge_plot<-var_boxplot(variable=fulldata_nona$shrubgrass_crops_ed , yaxis="Shrubland and Grassland to Crop Land Edges")
+
+#Save insecticides plot
+ggexport(insect_plot, filename = "Data/Visualize/boxplots/insecticides_spatialtrends_boxplots.png")
+
+#Arrange boxplots on one page
+allvarplots<-ggarrange(plandcrops_plot,edgecrops_plot,
+              mnacrops_plot, largefarm_plot, 
+              soygrain_plot, corn_plot, fruitveg_plot,
+              msidi_plot,SDI_plot, 
+             ncedge_plot, fcedge_plot, sgcedge_plot,
+          labels = c("A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K"),
+          ncol = 4, nrow = 3)
+
+#Save the combined variable boxplots page
+ggexport(allvarplots, filename = "Data/Visualize/boxplots/allvariables_spatialtrends_boxplots.png",
+          width = 1800, height = 1500)
+
+```
+
+
+## Errorbar charts for different analyses
+
+### Landscape composition and configuration
+
+```{r}
+
+#Plot basemodels on x and coefficient for each model with SD facet by term
+#Relabel predictors
+basemodels_plot_df <- basemodels_df_coef %>%
+  relabel_predictors(c(PercentCrop = "Percent Cropland",
+                       CropEdge= "Crop Edge Density",
+                       MeanCropArea = "Avg. Crop Area",
+                       LargeFarms = " Proportion Large Farm",
+                       SoyGrains= "Proportion Soy & Grains",
+                       Corn= "Proportion Corn",
+                       FruitVeg= "Proportion Fruit & Veg"))
+
+basemodels_compare<-ggplot2::ggplot(basemodels_plot_df, aes(x = model, color=model)) +
+  geom_errorbar(aes(ymax = estimate + std.error, ymin = estimate - std.error),
+                position = "dodge", width=0.5, size=1)+
+   geom_hline(yintercept = 0, colour = "grey60", linetype = 2) +
+  theme_bw() + ylab("Coefficient Estimate")+ labs(color="Model")+xlab("")+
+  facet_wrap(~term)+
+  theme(text = element_text(size = 14),
+            axis.text.x=element_blank(),
+            axis.title = element_text(size=20),
+          strip.text.x = element_text(size = 18),
+            legend.title=element_text(size=20),
+          legend.text=element_text(size=18))+
+  scale_colour_manual(values=c("#007ed8", "#8bb860","#cb8f00","#b40000"),labels = c("With Crops, 3yrs data", "With Crops, 4yrs data", "Without Crops, 3yrs data", "Without Crops, 4yrs data"))
+
+ggexport(basemodels_compare, filename = "Data/Visualize/boxwhisker/basemodels_compare.png",
+             width = 1500, height = 1200)
+
+
+```
+
+
+### Diversity
+
+START HERE BY MAKING MORE PLOTS
+
+### Edge Interactions
+
+### Regional Effects
