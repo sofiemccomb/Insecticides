@@ -95,6 +95,7 @@ data_nocrops_4yrs<-fulldata %>%
          LargeFarms=largefarm_planted)
 
 lm_nocrops_4yrs<-lm(Insecticide~PercentCrop+CropEdge+MeanCropArea+LargeFarms+factor(Year)+factor(ASDCode), data=data_nocrops_4yrs)
+save(lm_nocrops_4yrs, file="Data/Analysis/models/lm_nocrops_4yrs.Rda")
 df_nocrops_4yrs<-broom::tidy(lm_nocrops_4yrs) %>% 
   mutate(model="nocrops_4yrs") %>% 
   dplyr::filter(!stringr::str_detect(term, "(Intercept)"),

@@ -20,6 +20,7 @@ library(ggpubr)#To arrange ggplots on a page
 library(stringr)#String detection
 library(tidyverse) #Datatable manipulation (all functions)
 library(dotwhisker) #relabel predictors
+library(stargazer) #Create stargazer tables
 
 #Set options
   options(scipen=999) #no scientific notation (all)
@@ -92,7 +93,7 @@ ggexport(allvarplots, filename = "Data/Visualize/boxplots/allvariables_timetrend
 Creating boxplots showing the values for each of the variables being considered in any of the regression models, across the ERS being considered. Using the fulldata datasets (loaded in the variable_spatial_boxplots.R script sourced below).
 
 
-```{r var boxplots, message=F, warning=F}
+```{r var boxplots spatial, message=F, warning=F}
 
 #Source R script to create boxplot visualizations
 #Load fulldata to pull from
@@ -156,15 +157,16 @@ basemodels_plot_df <- basemodels_df_coef %>%
 basemodels_compare<-ggplot2::ggplot(basemodels_plot_df, aes(x = model, color=model)) +
   geom_errorbar(aes(ymax = estimate + std.error, ymin = estimate - std.error),
                 position = "dodge", width=0.5, size=1)+
+  geom_point(aes(y=estimate), size=3)+
    geom_hline(yintercept = 0, colour = "grey60", linetype = 2) +
   theme_bw() + ylab("Coefficient Estimate")+ labs(color="Model")+xlab("")+
   facet_wrap(~term)+
-  theme(text = element_text(size = 14),
+  theme(text = element_text(size = 18),
             axis.text.x=element_blank(),
-            axis.title = element_text(size=20),
-          strip.text.x = element_text(size = 18),
-            legend.title=element_text(size=20),
-          legend.text=element_text(size=18))+
+            axis.title = element_text(size=22),
+          strip.text.x = element_text(size = 20),
+            legend.title=element_text(size=22),
+          legend.text=element_text(size=20))+
   scale_colour_manual(values=c("#007ed8", "#8bb860","#cb8f00","#b40000"),labels = c("With Crops, 3yrs data", "With Crops, 4yrs data", "Without Crops, 3yrs data", "Without Crops, 4yrs data"))
 
 ggexport(basemodels_compare, filename = "Data/Visualize/boxwhisker/basemodels_compare.png",
@@ -176,8 +178,237 @@ ggexport(basemodels_compare, filename = "Data/Visualize/boxwhisker/basemodels_co
 
 ### Diversity
 
-START HERE BY MAKING MORE PLOTS
+```{r}
+
+#Plot diversity on x and coefficient on y with SD facet by term
+#Relabel predictors
+diversity_plot_df <- df_coef_diversity %>%
+  relabel_predictors(c(PercentCrop = "Percent Cropland",
+                       CropEdge= "Crop Edge Density",
+                       MeanCropArea = "Avg. Crop Area",
+                       LargeFarms = " Proportion Large Farm",
+                       SoyGrains= "Proportion Soy & Grains",
+                       Corn= "Proportion Corn",
+                       FruitVeg= "Proportion Fruit & Veg",
+                       LandDiversity= "Landscape Diversity",
+                       CropDiversity="Cropland Diversity"))
+
+diversity_compare<-ggplot2::ggplot(diversity_plot_df, aes(y=fct_rev(as_factor(term)))) +
+  geom_errorbarh(aes(xmax = estimate + std.error, xmin = estimate - std.error),
+                height=0.3, size=1, colour="royalblue")+
+  geom_point(aes(x=estimate), size=2, colour="royalblue")+
+  geom_vline(xintercept = 0, colour = "grey60", linetype = 2) +
+  theme_bw() + ylab("")+xlab("Coefficient Estimate")+
+  theme(text = element_text(size = 20))
+
+  ggexport(diversity_compare, filename = "Data/Visualize/boxwhisker/diversity_compare.png",
+           width = 900, height = 800)
+
+```
+
 
 ### Edge Interactions
 
+```{r}
+
+#Plot edgemodels on x and coefficient for each model with SD facet by term
+#Relabel predictors
+edgemodels_plot_df <- edgemodels_df_coef %>%
+  relabel_predictors(c(PercentCrop = "Percent Cropland",
+                       MeanCropArea = "Avg. Crop Area",
+                       LargeFarms = "Proportion Large Farm",
+                       SoyGrains= "Proportion Soy & Grains",
+                       Corn= "Proportion Corn",
+                       FruitVeg= "Proportion Fruit & Veg",
+                       LandDiversity= "Landscape Diversity",
+                       CropDiversity="Cropland Diversity",
+                       NaturalCropEdge= "Natural-Crop Edge Density",
+                       ForestCropEdge= "Forest-Crop Edge Density",
+                       ShrubgrassCropEdge= "Shrubgrass-Crop Edge Density")) %>% 
+  mutate(modelorder=as.factor(ifelse(model=="natural", 1, ifelse(model=="forest", 2, ifelse(model=="shrubgrass", 3, 0))))) %>% 
+  arrange(modelorder) %>% 
+  mutate(term=as.factor(term))
+         
+  edgemodels_plot_df$term<-factor(edgemodels_plot_df$term,
+                                  levels=c("Percent Cropland","Avg. Crop Area", "Proportion Large Farm",
+                           "Proportion Soy & Grains","Proportion Corn","Proportion Fruit & Veg",
+                           "Landscape Diversity","Cropland Diversity","Natural-Crop Edge Density",
+                           "Forest-Crop Edge Density","Shrubgrass-Crop Edge Density"))
+
+
+edgemodels_compare<-ggplot2::ggplot(edgemodels_plot_df, aes(x = modelorder, color=modelorder)) +
+  geom_errorbar(aes(ymax = estimate + std.error, ymin = estimate - std.error),
+                position = "dodge", width=0.5, size=1)+
+   geom_point(aes(y=estimate), size=3)+
+   geom_hline(yintercept = 0, colour = "grey60", linetype = 2) +
+  theme_bw() + ylab("Coefficient Estimate")+ labs(color="Model")+xlab("")+
+  facet_wrap(~term)+
+  theme(text = element_text(size = 18),
+            axis.text.x=element_blank(),
+            axis.title = element_text(size=22),
+          strip.text.x = element_text(size = 20),
+            legend.title=element_text(size=22),
+          legend.text=element_text(size=20))+
+  scale_colour_manual(values=c("#007ed8","#8bb860", "#0d98ba"),labels = c("Natural", "Forest", "Shrub & Grass"))
+
+ ggexport(edgemodels_compare, filename = "Data/Visualize/boxwhisker/edgemodels_compare.png",
+             width = 1500, height = 1200)
+ 
+ ####################
+ #Version add edge_crop in
+ alledgemodels_plot_df <- rbind(df_coef_diversity, edgemodels_df_coef) %>%
+  relabel_predictors(c(PercentCrop = "Percent Cropland",
+                       CropEdge= "Crop Edge Density",
+                       MeanCropArea = "Avg. Crop Area",
+                       LargeFarms = " Proportion Large Farm",
+                       SoyGrains= "Proportion Soy & Grains",
+                       Corn= "Proportion Corn",
+                       FruitVeg= "Proportion Fruit & Veg",
+                       LandDiversity= "Landscape Diversity",
+                       CropDiversity="Cropland Diversity",
+                       NaturalCropEdge= "Natural-Crop Edge Density",
+                       ForestCropEdge= "Forest-Crop Edge Density",
+                       ShrubgrassCropEdge= "Shrubgrass-Crop Edge Density")) %>% 
+     mutate(modelorder=as.factor(ifelse(model=="diversity", 1, 
+                                        ifelse(model=="natural", 2, 
+                                               ifelse(model=="forest", 3,
+                                                      ifelse(model=="shrubgrass", 4, 0)))))) %>% 
+   arrange(modelorder) %>% 
+   mutate(term=as.factor(term))
+         
+  # alledgemodels_plot_df$term<-factor(alledgemodels_plot_df$term,
+  #                                 levels=c("Percent Cropland","Avg. Crop Area", "Proportion Large Farm",
+  #                          "Proportion Soy & Grains","Proportion Corn","Proportion Fruit & Veg",
+  #                          "Landscape Diversity","Cropland Diversity","Crop Edge Density", "Natural-Crop Edge Density",
+  #                          "Forest-Crop Edge Density","Shrubgrass-Crop Edge Density"))
+ 
+ #Struggling to relevel the facet wrap-creating NAs
+
+ alledgemodels_compare<-ggplot2::ggplot(alledgemodels_plot_df, aes(x = modelorder, color=modelorder)) +
+  geom_errorbar(aes(ymax = estimate + std.error, ymin = estimate - std.error),
+                position = "dodge", width=0.5, size=1)+
+   geom_point(aes(y=estimate), size=3)+
+   geom_hline(yintercept = 0, colour = "grey60", linetype = 2) +
+  theme_bw() + ylab("Coefficient Estimate")+ labs(color="Model")+xlab("")+
+  facet_wrap(~term)+
+  theme(text = element_text(size = 18),
+            axis.text.x=element_blank(),
+            axis.title = element_text(size=22),
+          strip.text.x = element_text(size = 20),
+            legend.title=element_text(size=22),
+          legend.text=element_text(size=20))+
+  scale_colour_manual(values=c("#cb8f00","#007ed8","#8bb860", "#0d98ba"),labels = c("Crop", "Natural", "Forest", "Shrub & Grass"))
+
+ ggexport(alledgemodels_compare, filename = "Data/Visualize/boxwhisker/alledgemodels_compare.png",
+             width = 1500, height = 1200)
+ 
+
+```
+
+
+
 ### Regional Effects
+
+```{r}
+
+#Plot ERS on x and coefficient for each model with SD facet by term
+regionalmodels_plot_df <- df_coef_regional%>%
+  relabel_predictors(c(PercentCrop = "Percent Cropland",
+                       NaturalCropEdge= "Natural-Crop Edge Density",
+                       MeanCropArea = "Avg. Crop Area",
+                       LargeFarms = "Proportion Large Farm",
+                       SoyGrains= "Proportion Soy & Grains",
+                       Corn= "Proportion Corn",
+                       FruitVeg= "Proportion Fruit & Veg",
+                       LandDiversity= "Landscape Diversity",
+                       CropDiversity="Cropland Diversity"))
+
+#Plot ERS on x and coefficient for each model with SD facet by term
+cbPalette <- c("#ffd447", "#ff8787", "#cdc89e", "#eeaa55", "#a5a5a5", "#a6d1ef", "#72c377", "#c3aa1b", "#ac842b")
+#The colors of the ERS map created by the USDA
+
+regionalmodels_compare<-ggplot2::ggplot(regionalmodels_plot_df, aes(x = factor(ERS), color = factor(ERS))) +
+  geom_errorbar(aes(ymax = estimate + std.error, ymin = estimate - std.error),
+                position = "dodge",width=0.5, size=1)+
+  geom_point(aes(y=estimate), size=3)+
+  facet_wrap(~term)+
+   geom_hline(yintercept = 0, colour = "grey60", linetype = 2) +
+  theme_bw() + ylab("Coefficient Estimate") + xlab("ERS")+ 
+  # labs(color="Model")+
+  theme(text = element_text(size = 20),
+            # axis.text.x=element_blank(),
+            axis.title = element_text(size=22),
+          strip.text.x = element_text(size = 20),
+          #   legend.title=element_text(size=22),
+          # legend.text=element_text(size=20),
+        legend.position = "none")+
+  scale_color_manual(values=cbPalette)
+
+
+ggexport(regionalmodels_compare, filename = "Data/Visualize/boxwhisker/regionalmodels_compare.png",
+             width = 1500, height = 1200)
+
+
+
+```
+
+
+
+
+## Create Stargazer Tables for Different Analyses
+
+Re-run some of the lm and clubsandwich results in order to create into tables
+
+### Rerun models
+
+```{r}
+
+load("Data/DataProcessing/df/fulldata.rda")
+
+
+```
+
+
+
+### Create Tables
+
+```{r}
+
+library(stargazer)
+load("Data/Analysis/models/lm_nocrops_4yrs.Rda")
+stargazer(lm_nocrops_4yrs)
+#Create sample stargazer tables, by running desired lm outputs from Analysis (rerun Analysis, do not want to save since takes a lot of storage)
+#Will need to change out SE and p-values for those from CRSE results
+#dont' need F statistic-just observations and R2
+df_coef_nocrops_3yrs<-lm_nocrops_3yrs %>% 
+  clubSandwich::coef_test(vcov = "CR2", cluster = data_nocrops_3yrs$ASDCode, test = "Satterthwaite")
+df_coef_nocrops_4yrs<-lm_nocrops_4yrs %>% 
+  clubSandwich::coef_test(vcov = "CR2", cluster = data_nocrops_4yrs$ASDCode, test = "Satterthwaite")
+df_coef_crops_4yrs<-lm_crops_4yrs %>% 
+  clubSandwich::coef_test(vcov = "CR2", cluster = data_crops_4yrs$ASDCode, test = "Satterthwaite")
+df_coef_crops_3yrs<-lm_crops_3yrs %>% 
+  clubSandwich::coef_test(vcov = "CR2", cluster = data_crops_3yrs$ASDCode, test = "Satterthwaite")
+
+
+stargazer(lm_nocrops_4yrs,lm_nocrops_3yrs, lm_crops_4yrs, lm_crops_3yrs, omit=c("ASDCode","Year"), 
+          type = 'text', out = 'Data/Visualize/stargazer/samplestargazer.txt',
+          covariate.labels=c("Percent Cropland", "Crop Edge Density", "Average Crop Area", "Proportion Large Farms", 
+                             "Proportion soybeans and small grains", "Proportion corn", "Proportion fruit and vegetables"),
+          omit.stat=c("LL","ser","f"), 
+          se = list(df_coef_nocrops_4yrs[,2],df_coef_nocrops_3yrs[,2],df_coef_crops_4yrs[,2],df_coef_crops_3yrs[,2]),
+          p=list(df_coef_nocrops_4yrs[,5],df_coef_nocrops_3yrs[,5],df_coef_crops_4yrs[,5],df_coef_crops_3yrs[,5]))
+
+se = robust[,2], p = robust[,4], p.auto = F
+df_coef_nocrops_4yrs
+se<-c(list(HAC1), list(HAC2),...)
+
+
+
+cov1        <- vcovHC(lm_nocrops_4yrs, type = "HC0")
+robust1     <- sqrt(diag(cov1))
+head(robust1)
+
+list(robust1, robust1)
+list(df_coef_nocrops_3yrs[,3])
+```
+

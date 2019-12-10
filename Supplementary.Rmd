@@ -1,0 +1,19 @@
+---
+title: "Supplementary"
+author: "Sofie McComb"
+date: "December 10, 2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+a.	Perform Conley standard errors using best model on centroids of counties (200 km, no time lags) to examine spatial autocorrelation
+i.	http://www.trfetzer.com/using-r-to-estimate-spatial-hac-errors-per-conley/
+ii.	On favorite model, just for CP
+b.	Remove counties with <1% of cropland and run best model, reporting in supplementary section on how many observations it removes; create map showing which counties are removed 
+c.	Replaced percent crop (NLCD) with harvested crop (CoA) and re-run best model to identify if results change
+d.	Run best model with fixed effects on county instead of ASD for supplementary figure, including table of xtsum output showing ASD better than county level in terms of remaining variation
+e.	Retrive CoA data back to 1987 and create boxplots and run cross-sectional models on CoA data (large farm, crop covariates, harvested crop) from 1987-2017
+f.	Make table with VIFs or maybe a correlation plot (library = corrplot I believe) for the landscape and patch metrics (Percent crop, edge density crops, mean patch size crops, large farms, crop diversity, landscape diversity).  
