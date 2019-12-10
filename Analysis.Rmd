@@ -93,6 +93,7 @@ data_nocrops_4yrs<-fulldata %>%
          CropEdge=ed_crops,
          MeanCropArea=mna_crops,
          LargeFarms=largefarm_planted)
+save(data_nocrops_4yrs, file="Data/Analysis/models/df/data_nocrops_4yrs.Rda")
 
 lm_nocrops_4yrs<-lm(Insecticide~PercentCrop+CropEdge+MeanCropArea+LargeFarms+factor(Year)+factor(ASDCode), data=data_nocrops_4yrs)
 save(lm_nocrops_4yrs, file="Data/Analysis/models/lm_nocrops_4yrs.Rda")
@@ -125,6 +126,7 @@ data_nocrops_3yrs<-fulldata %>%
          CropEdge=ed_crops,
          MeanCropArea=mna_crops,
          LargeFarms=largefarm_planted)
+save(data_nocrops_3yrs, file="Data/Analysis/models/df/data_nocrops_3yrs.Rda")
 
 lm_nocrops_3yrs<-lm(Insecticide~PercentCrop+CropEdge+MeanCropArea+LargeFarms+factor(Year)+factor(ASDCode), data=data_nocrops_3yrs)
 save(lm_nocrops_3yrs, file="Data/Analysis/models/lm_nocrops_3yrs.Rda")
@@ -160,6 +162,7 @@ data_crops_4yrs<-fulldata %>%
          SoyGrains=soysmallgrain_planted,
          Corn=corn_planted,
          FruitVeg=fruitveg_planted)
+save(data_crops_4yrs, file="Data/Analysis/models/df/data_crops_4yrs.Rda")
 
 lm_crops_4yrs<-lm(Insecticide~PercentCrop+CropEdge+MeanCropArea+LargeFarms+
                     SoyGrains+Corn+FruitVeg+factor(Year)+factor(ASDCode), data=data_crops_4yrs)
@@ -197,6 +200,7 @@ data_crops_3yrs<-fulldata %>%
          SoyGrains=soysmallgrain_planted,
          Corn=corn_planted,
          FruitVeg=fruitveg_planted)
+save(data_crops_3yrs, file="Data/Analysis/models/df/data_crops_3yrs.Rda")
 
 lm_crops_3yrs<-lm(Insecticide~PercentCrop+CropEdge+MeanCropArea+LargeFarms+
                     SoyGrains+Corn+FruitVeg+factor(Year)+factor(ASDCode), data=data_crops_3yrs)
@@ -260,6 +264,7 @@ data_diversity<-fulldata %>%
          FruitVeg=fruitveg_planted,
          LandDiversity=msidi,
          CropDiversity=SDI)
+save(data_diversity, file="Data/Analysis/models/df/data_diversity.Rda")
 
 lm_diversity<-lm(Insecticide~PercentCrop+CropEdge+MeanCropArea+LargeFarms+
                   SoyGrains+Corn+FruitVeg+LandDiversity+CropDiversity+
@@ -318,6 +323,7 @@ data_natural<-fulldata %>%
          FruitVeg=fruitveg_planted,
          LandDiversity=msidi,
          CropDiversity=SDI)
+save(data_natural, file="Data/Analysis/models/df/data_natural.Rda")
 
 lm_natural<-lm(Insecticide~PercentCrop+NaturalCropEdge+MeanCropArea+LargeFarms+
                   SoyGrains+Corn+FruitVeg+LandDiversity+CropDiversity+
@@ -358,6 +364,7 @@ data_forest<-fulldata %>%
          FruitVeg=fruitveg_planted,
          LandDiversity=msidi,
          CropDiversity=SDI)
+save(data_forest, file="Data/Analysis/models/df/data_forest.Rda")
 
 lm_forest<-lm(Insecticide~PercentCrop+ForestCropEdge+MeanCropArea+LargeFarms+
                   SoyGrains+Corn+FruitVeg+LandDiversity+CropDiversity+
@@ -398,6 +405,7 @@ data_shrubgrass<-fulldata %>%
          FruitVeg=fruitveg_planted,
          LandDiversity=msidi,
          CropDiversity=SDI)
+save(data_shrubgrass, file="Data/Analysis/models/df/data_shrubgrass.Rda")
 
 lm_shrubgrass<-lm(Insecticide~PercentCrop+ShrubgrassCropEdge+MeanCropArea+LargeFarms+
                   SoyGrains+Corn+FruitVeg+LandDiversity+CropDiversity+
@@ -472,6 +480,7 @@ data_regional<-fulldata %>%
          FruitVeg=fruitveg_planted,
          LandDiversity=msidi,
          CropDiversity=SDI)
+save(data_regional, file="Data/Analysis/models/df/data_regional.Rda")
 
 lm_regional<-lm(Insecticide~PercentCrop*ERSCode+NaturalCropEdge*ERSCode+MeanCropArea*ERSCode+LargeFarms*ERSCode+
                   SoyGrains*ERSCode+Corn*ERSCode+FruitVeg*ERSCode+LandDiversity*ERSCode+CropDiversity*ERSCode+

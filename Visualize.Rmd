@@ -374,6 +374,17 @@ load("Data/Analysis/models/lm_forest.Rda")
 load("Data/Analysis/models/lm_shrubgrass.Rda")
 load("Data/Analysis/models/lm_regional.Rda")
 
+#Load all dataframes from models/df folder
+load("Data/Analysis/models/df/data_nocrops_4yrs.Rda")
+load("Data/Analysis/models/df/data_nocrops_3yrs.Rda")
+load("Data/Analysis/models/df/data_crops_4yrs.Rda")
+load("Data/Analysis/models/df/data_crops_3yrs.Rda")
+load("Data/Analysis/models/df/data_diversity.Rda")
+load("Data/Analysis/models/df/data_natural.Rda")
+load("Data/Analysis/models/df/data_forest.Rda")
+load("Data/Analysis/models/df/data_shrubgrass.Rda")
+load("Data/Analysis/models/df/data_regional.Rda")
+
 #Shortened coef_test
 df_coef_nocrops_3yrs<-lm_nocrops_3yrs %>% 
   clubSandwich::coef_test(vcov = "CR2", cluster = data_nocrops_3yrs$ASDCode, test = "Satterthwaite")
@@ -400,36 +411,16 @@ df_coef_regional<-lm_regional %>%
 
 ### Create Tables
 
-```{r}
-
-library(stargazer)
-
-stargazer(lm_nocrops_4yrs)
-#Create sample stargazer tables, by running desired lm outputs from Analysis (rerun Analysis, do not want to save since takes a lot of storage)
-#Will need to change out SE and p-values for those from CRSE results
-#dont' need F statistic-just observations and R2
-
-
+```{r stargazer}
 
 stargazer(lm_nocrops_4yrs,lm_nocrops_3yrs, lm_crops_4yrs, lm_crops_3yrs, omit=c("ASDCode","Year"), 
-          type = 'text', out = 'Data/Visualize/stargazer/samplestargazer.txt',
+          type = 'text', out = 'Data/Visualize/stargazer/basemodels_table.txt',
           covariate.labels=c("Percent Cropland", "Crop Edge Density", "Average Crop Area", "Proportion Large Farms", 
                              "Proportion soybeans and small grains", "Proportion corn", "Proportion fruit and vegetables"),
           omit.stat=c("LL","ser","f"), 
           se = list(df_coef_nocrops_4yrs[,2],df_coef_nocrops_3yrs[,2],df_coef_crops_4yrs[,2],df_coef_crops_3yrs[,2]),
           p=list(df_coef_nocrops_4yrs[,5],df_coef_nocrops_3yrs[,5],df_coef_crops_4yrs[,5],df_coef_crops_3yrs[,5]))
 
-se = robust[,2], p = robust[,4], p.auto = F
-df_coef_nocrops_4yrs
-se<-c(list(HAC1), list(HAC2),...)
 
-
-
-cov1        <- vcovHC(lm_nocrops_4yrs, type = "HC0")
-robust1     <- sqrt(diag(cov1))
-head(robust1)
-
-list(robust1, robust1)
-list(df_coef_nocrops_3yrs[,3])
 ```
 
