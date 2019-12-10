@@ -127,6 +127,7 @@ data_nocrops_3yrs<-fulldata %>%
          LargeFarms=largefarm_planted)
 
 lm_nocrops_3yrs<-lm(Insecticide~PercentCrop+CropEdge+MeanCropArea+LargeFarms+factor(Year)+factor(ASDCode), data=data_nocrops_3yrs)
+save(lm_nocrops_3yrs, file="Data/Analysis/models/lm_nocrops_3yrs.Rda")
 df_nocrops_3yrs<-broom::tidy(lm_nocrops_3yrs) %>% 
   mutate(model="nocrops_3yrs") %>% 
   dplyr::filter(!stringr::str_detect(term, "(Intercept)"),
@@ -162,6 +163,7 @@ data_crops_4yrs<-fulldata %>%
 
 lm_crops_4yrs<-lm(Insecticide~PercentCrop+CropEdge+MeanCropArea+LargeFarms+
                     SoyGrains+Corn+FruitVeg+factor(Year)+factor(ASDCode), data=data_crops_4yrs)
+save(lm_crops_4yrs, file="Data/Analysis/models/lm_crops_4yrs.Rda")
 df_crops_4yrs<-broom::tidy(lm_crops_4yrs) %>% 
   mutate(model="crops_4yrs") %>% 
   dplyr::filter(!stringr::str_detect(term, "(Intercept)"),
@@ -198,6 +200,7 @@ data_crops_3yrs<-fulldata %>%
 
 lm_crops_3yrs<-lm(Insecticide~PercentCrop+CropEdge+MeanCropArea+LargeFarms+
                     SoyGrains+Corn+FruitVeg+factor(Year)+factor(ASDCode), data=data_crops_3yrs)
+save(lm_crops_3yrs, file="Data/Analysis/models/lm_crops_3yrs.Rda")
 df_crops_3yrs<-broom::tidy(lm_crops_3yrs) %>% 
   mutate(model="crops_3yrs") %>% 
   dplyr::filter(!stringr::str_detect(term, "(Intercept)"),
@@ -261,6 +264,7 @@ data_diversity<-fulldata %>%
 lm_diversity<-lm(Insecticide~PercentCrop+CropEdge+MeanCropArea+LargeFarms+
                   SoyGrains+Corn+FruitVeg+LandDiversity+CropDiversity+
                   factor(Year)+factor(ASDCode), data=data_diversity)
+save(lm_diversity, file="Data/Analysis/models/lm_diversity.Rda")
 df_diversity<-broom::tidy(lm_diversity) %>% 
   mutate(model="diversity") %>% 
   dplyr::filter(!stringr::str_detect(term, "(Intercept)"),
@@ -318,6 +322,7 @@ data_natural<-fulldata %>%
 lm_natural<-lm(Insecticide~PercentCrop+NaturalCropEdge+MeanCropArea+LargeFarms+
                   SoyGrains+Corn+FruitVeg+LandDiversity+CropDiversity+
                   factor(Year)+factor(ASDCode), data=data_natural)
+save(lm_natural, file="Data/Analysis/models/lm_natural.Rda")
 df_natural<-broom::tidy(lm_natural) %>% 
   mutate(model="natural") %>% 
   dplyr::filter(!stringr::str_detect(term, "(Intercept)"),
@@ -357,6 +362,7 @@ data_forest<-fulldata %>%
 lm_forest<-lm(Insecticide~PercentCrop+ForestCropEdge+MeanCropArea+LargeFarms+
                   SoyGrains+Corn+FruitVeg+LandDiversity+CropDiversity+
                   factor(Year)+factor(ASDCode), data=data_forest)
+save(lm_forest, file="Data/Analysis/models/lm_forest.Rda")
 df_forest<-broom::tidy(lm_forest) %>% 
   mutate(model="forest") %>% 
   dplyr::filter(!stringr::str_detect(term, "(Intercept)"),
@@ -396,6 +402,7 @@ data_shrubgrass<-fulldata %>%
 lm_shrubgrass<-lm(Insecticide~PercentCrop+ShrubgrassCropEdge+MeanCropArea+LargeFarms+
                   SoyGrains+Corn+FruitVeg+LandDiversity+CropDiversity+
                   factor(Year)+factor(ASDCode), data=data_shrubgrass)
+save(lm_shrubgrass, file="Data/Analysis/models/lm_shrubgrass.Rda")
 df_shrubgrass<-broom::tidy(lm_shrubgrass) %>% 
   mutate(model="shrubgrass") %>% 
   dplyr::filter(!stringr::str_detect(term, "(Intercept)"),
@@ -469,6 +476,7 @@ data_regional<-fulldata %>%
 lm_regional<-lm(Insecticide~PercentCrop*ERSCode+NaturalCropEdge*ERSCode+MeanCropArea*ERSCode+LargeFarms*ERSCode+
                   SoyGrains*ERSCode+Corn*ERSCode+FruitVeg*ERSCode+LandDiversity*ERSCode+CropDiversity*ERSCode+
                   factor(Year)+factor(ASDCode), data=data_regional)
+save(lm_regional, file="Data/Analysis/models/lm_regional.Rda")
 df_regional<-broom::tidy(lm_regional) %>% 
   mutate(model="regional") %>% 
   dplyr::filter(!stringr::str_detect(term, "(Intercept)"),

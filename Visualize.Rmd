@@ -359,12 +359,40 @@ ggexport(regionalmodels_compare, filename = "Data/Visualize/boxwhisker/regionalm
 
 Re-run some of the lm and clubsandwich results in order to create into tables
 
-### Rerun models
+### Load models and re-run shortened coef_test
 
 ```{r}
 
-load("Data/DataProcessing/df/fulldata.rda")
+#Load all models from models folder
+load("Data/Analysis/models/lm_nocrops_4yrs.Rda")
+load("Data/Analysis/models/lm_nocrops_3yrs.Rda")
+load("Data/Analysis/models/lm_crops_4yrs.Rda")
+load("Data/Analysis/models/lm_crops_3yrs.Rda")
+load("Data/Analysis/models/lm_diversity.Rda")
+load("Data/Analysis/models/lm_natural.Rda")
+load("Data/Analysis/models/lm_forest.Rda")
+load("Data/Analysis/models/lm_shrubgrass.Rda")
+load("Data/Analysis/models/lm_regional.Rda")
 
+#Shortened coef_test
+df_coef_nocrops_3yrs<-lm_nocrops_3yrs %>% 
+  clubSandwich::coef_test(vcov = "CR2", cluster = data_nocrops_3yrs$ASDCode, test = "Satterthwaite")
+df_coef_nocrops_4yrs<-lm_nocrops_4yrs %>% 
+  clubSandwich::coef_test(vcov = "CR2", cluster = data_nocrops_4yrs$ASDCode, test = "Satterthwaite")
+df_coef_crops_4yrs<-lm_crops_4yrs %>% 
+  clubSandwich::coef_test(vcov = "CR2", cluster = data_crops_4yrs$ASDCode, test = "Satterthwaite")
+df_coef_crops_3yrs<-lm_crops_3yrs %>% 
+  clubSandwich::coef_test(vcov = "CR2", cluster = data_crops_3yrs$ASDCode, test = "Satterthwaite")
+df_coef_diversity<-lm_diversity %>% 
+  clubSandwich::coef_test(vcov = "CR2", cluster = data_diversity$ASDCode, test = "Satterthwaite")
+df_coef_natural<-lm_natural %>% 
+  clubSandwich::coef_test(vcov = "CR2", cluster = data_natural$ASDCode, test = "Satterthwaite")
+df_coef_forest<-lm_forest %>% 
+  clubSandwich::coef_test(vcov = "CR2", cluster = data_forest$ASDCode, test = "Satterthwaite")
+df_coef_shrubgrass<-lm_shrubgrass %>% 
+  clubSandwich::coef_test(vcov = "CR2", cluster = data_shrubgrass$ASDCode, test = "Satterthwaite")
+df_coef_regional<-lm_regional %>% 
+  clubSandwich::coef_test(vcov = "CR2", cluster = data_regional$ASDCode, test = "Satterthwaite")
 
 ```
 
@@ -375,19 +403,12 @@ load("Data/DataProcessing/df/fulldata.rda")
 ```{r}
 
 library(stargazer)
-load("Data/Analysis/models/lm_nocrops_4yrs.Rda")
+
 stargazer(lm_nocrops_4yrs)
 #Create sample stargazer tables, by running desired lm outputs from Analysis (rerun Analysis, do not want to save since takes a lot of storage)
 #Will need to change out SE and p-values for those from CRSE results
 #dont' need F statistic-just observations and R2
-df_coef_nocrops_3yrs<-lm_nocrops_3yrs %>% 
-  clubSandwich::coef_test(vcov = "CR2", cluster = data_nocrops_3yrs$ASDCode, test = "Satterthwaite")
-df_coef_nocrops_4yrs<-lm_nocrops_4yrs %>% 
-  clubSandwich::coef_test(vcov = "CR2", cluster = data_nocrops_4yrs$ASDCode, test = "Satterthwaite")
-df_coef_crops_4yrs<-lm_crops_4yrs %>% 
-  clubSandwich::coef_test(vcov = "CR2", cluster = data_crops_4yrs$ASDCode, test = "Satterthwaite")
-df_coef_crops_3yrs<-lm_crops_3yrs %>% 
-  clubSandwich::coef_test(vcov = "CR2", cluster = data_crops_3yrs$ASDCode, test = "Satterthwaite")
+
 
 
 stargazer(lm_nocrops_4yrs,lm_nocrops_3yrs, lm_crops_4yrs, lm_crops_3yrs, omit=c("ASDCode","Year"), 
