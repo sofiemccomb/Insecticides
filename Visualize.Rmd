@@ -256,25 +256,25 @@ edgemodels_compare<-ggplot2::ggplot(edgemodels_plot_df, aes(x = modelorder, colo
  
  ####################
  #Version add edge_crop in
- alledgemodels_plot_df <- rbind(df_coef_diversity, edgemodels_df_coef) %>%
-  relabel_predictors(c(PercentCrop = "Percent Cropland",
-                       CropEdge= "Crop Edge Density",
-                       MeanCropArea = "Avg. Crop Area",
-                       LargeFarms = " Proportion Large Farm",
-                       SoyGrains= "Proportion Soy & Grains",
-                       Corn= "Proportion Corn",
-                       FruitVeg= "Proportion Fruit & Veg",
-                       LandDiversity= "Landscape Diversity",
-                       CropDiversity="Cropland Diversity",
-                       NaturalCropEdge= "Natural-Crop Edge Density",
-                       ForestCropEdge= "Forest-Crop Edge Density",
-                       ShrubgrassCropEdge= "Shrubgrass-Crop Edge Density")) %>% 
-     mutate(modelorder=as.factor(ifelse(model=="diversity", 1, 
-                                        ifelse(model=="natural", 2, 
-                                               ifelse(model=="forest", 3,
-                                                      ifelse(model=="shrubgrass", 4, 0)))))) %>% 
-   arrange(modelorder) %>% 
-   mutate(term=as.factor(term))
+ # alledgemodels_plot_df <- rbind(df_coef_diversity, edgemodels_df_coef) %>%
+ #  relabel_predictors(c(PercentCrop = "Percent Cropland",
+ #                       CropEdge= "Crop Edge Density",
+ #                       MeanCropArea = "Avg. Crop Area",
+ #                       LargeFarms = " Proportion Large Farm",
+ #                       SoyGrains= "Proportion Soy & Grains",
+ #                       Corn= "Proportion Corn",
+ #                       FruitVeg= "Proportion Fruit & Veg",
+ #                       LandDiversity= "Landscape Diversity",
+ #                       CropDiversity="Cropland Diversity",
+ #                       NaturalCropEdge= "Natural-Crop Edge Density",
+ #                       ForestCropEdge= "Forest-Crop Edge Density",
+ #                       ShrubgrassCropEdge= "Shrubgrass-Crop Edge Density")) %>% 
+ #     mutate(modelorder=as.factor(ifelse(model=="diversity", 1, 
+ #                                        ifelse(model=="natural", 2, 
+ #                                               ifelse(model=="forest", 3,
+ #                                                      ifelse(model=="shrubgrass", 4, 0)))))) %>% 
+ #   arrange(modelorder) %>% 
+ #   mutate(term=as.factor(term))
          
   # alledgemodels_plot_df$term<-factor(alledgemodels_plot_df$term,
   #                                 levels=c("Percent Cropland","Avg. Crop Area", "Proportion Large Farm",
@@ -284,7 +284,49 @@ edgemodels_compare<-ggplot2::ggplot(edgemodels_plot_df, aes(x = modelorder, colo
  
  #Struggling to relevel the facet wrap-creating NAs
 
- alledgemodels_compare<-ggplot2::ggplot(alledgemodels_plot_df, aes(x = modelorder, color=modelorder)) +
+ # alledgemodels_compare<-ggplot2::ggplot(alledgemodels_plot_df, aes(x = modelorder, color=modelorder)) +
+ #  geom_errorbar(aes(ymax = estimate + std.error, ymin = estimate - std.error),
+ #                position = "dodge", width=0.5, size=1)+
+ #   geom_point(aes(y=estimate), size=3)+
+ #   geom_hline(yintercept = 0, colour = "grey60", linetype = 2) +
+ #  theme_bw() + ylab("Coefficient Estimate")+ labs(color="Model")+xlab("")+
+ #  facet_wrap(~term)+
+ #  theme(text = element_text(size = 18),
+ #            axis.text.x=element_blank(),
+ #            axis.title = element_text(size=22),
+ #          strip.text.x = element_text(size = 20),
+ #            legend.title=element_text(size=22),
+ #          legend.text=element_text(size=20))+
+ #  scale_colour_manual(values=c("#cb8f00","#007ed8","#8bb860", "#0d98ba"),labels = c("Crop", "Natural", "Forest", "Shrub & Grass"))
+ # 
+ # ggexport(alledgemodels_compare, filename = "Data/Visualize/boxwhisker/alledgemodels_compare.png",
+ #             width = 1500, height = 1200)
+ 
+ 
+ #################
+ #Create version with all edge densities together (rename predictors)
+ #Version add edge_crop in
+ combinededgemodels_plot_df <- rbind(df_coef_diversity, edgemodels_df_coef) %>%
+  relabel_predictors(c(PercentCrop = "Percent Cropland",
+                       CropEdge= "Edge Density",
+                       MeanCropArea = "Avg. Crop Area",
+                       LargeFarms = " Proportion Large Farm",
+                       SoyGrains= "Proportion Soy & Grains",
+                       Corn= "Proportion Corn",
+                       FruitVeg= "Proportion Fruit & Veg",
+                       LandDiversity= "Landscape Diversity",
+                       CropDiversity="Cropland Diversity",
+                       NaturalCropEdge= "Edge Density",
+                       ForestCropEdge= "Edge Density",
+                       ShrubgrassCropEdge= "Edge Density")) %>% 
+     mutate(modelorder=as.factor(ifelse(model=="diversity", 1, 
+                                        ifelse(model=="natural", 2, 
+                                               ifelse(model=="forest", 3,
+                                                      ifelse(model=="shrubgrass", 4, 0)))))) %>% 
+   arrange(modelorder) %>% 
+   mutate(term=as.factor(term))
+ 
+ combinededgemodels_compare<-ggplot2::ggplot(combinededgemodels_plot_df, aes(x = modelorder, color=modelorder)) +
   geom_errorbar(aes(ymax = estimate + std.error, ymin = estimate - std.error),
                 position = "dodge", width=0.5, size=1)+
    geom_point(aes(y=estimate), size=3)+
@@ -297,11 +339,11 @@ edgemodels_compare<-ggplot2::ggplot(edgemodels_plot_df, aes(x = modelorder, colo
           strip.text.x = element_text(size = 20),
             legend.title=element_text(size=22),
           legend.text=element_text(size=20))+
-  scale_colour_manual(values=c("#cb8f00","#007ed8","#8bb860", "#0d98ba"),labels = c("Crop", "Natural", "Forest", "Shrub & Grass"))
+     scale_colour_manual(values=c("#cb8f00","#007ed8","#8bb860", "#0d98ba"),labels = c("Crop", "Natural", "Forest", "Shrub & Grass"))
 
- ggexport(alledgemodels_compare, filename = "Data/Visualize/boxwhisker/alledgemodels_compare.png",
+
+ ggexport(combinededgemodels_compare, filename = "Data/Visualize/boxwhisker/edgemodels_compare_combined.png",
              width = 1500, height = 1200)
- 
 
 ```
 
@@ -357,7 +399,8 @@ ggexport(regionalmodels_compare, filename = "Data/Visualize/boxwhisker/regionalm
 
 ## Create Stargazer Tables for Different Analyses
 
-Re-run some of the lm and clubsandwich results in order to create into tables
+Re-run some of the lm and clubsandwich results in order to create into tables.
+Best to clear all variables before running-will be re-run with similar names.
 
 ### Load models and re-run shortened coef_test
 
@@ -411,8 +454,11 @@ df_coef_regional<-lm_regional %>%
 
 ### Create Tables
 
+Create stargazer regression tables for all scenarios
+
 ```{r stargazer}
 
+#Landscape composition and configuration base models
 stargazer(lm_nocrops_4yrs,lm_nocrops_3yrs, lm_crops_4yrs, lm_crops_3yrs, omit=c("ASDCode","Year"), 
           type = 'text', out = 'Data/Visualize/stargazer/basemodels_table.txt',
           covariate.labels=c("Percent Cropland", "Crop Edge Density", "Average Crop Area", "Proportion Large Farms", 
@@ -421,6 +467,44 @@ stargazer(lm_nocrops_4yrs,lm_nocrops_3yrs, lm_crops_4yrs, lm_crops_3yrs, omit=c(
           se = list(df_coef_nocrops_4yrs[,2],df_coef_nocrops_3yrs[,2],df_coef_crops_4yrs[,2],df_coef_crops_3yrs[,2]),
           p=list(df_coef_nocrops_4yrs[,5],df_coef_nocrops_3yrs[,5],df_coef_crops_4yrs[,5],df_coef_crops_3yrs[,5]))
 
+
+#Diversity
+stargazer(lm_diversity, omit=c("ASDCode","Year"), 
+          type = 'text', out = 'Data/Visualize/stargazer/diversity_table.txt',
+          covariate.labels=c("Percent Cropland", "Crop Edge Density", "Average Crop Area", "Proportion Large Farms", 
+                             "Proportion soybeans and small grains", "Proportion corn", "Proportion fruit and vegetables",
+                             "Landscape Diversity", "Cropland Diversity"),
+          omit.stat=c("LL","ser","f"), 
+          se = list(df_coef_diversity[,2]),
+          p=list(df_coef_diversity[,5]))
+
+#Edge Interactions
+stargazer(lm_natural,lm_forest, lm_shrubgrass, omit=c("ASDCode","Year"), 
+          type = 'text', out = 'Data/Visualize/stargazer/edgemodels_table.txt',
+          omit.stat=c("LL","ser","f"), 
+          se = list(df_coef_natural[,2],df_coef_forest[,2],df_coef_shrubgrass[,2]),
+          p=list(df_coef_natural[,5],df_coef_forest[,5],df_coef_shrubgrass[,5]))
+
+
+#Regional
+#Works to create basic table, but not to insert correct coef se and p results because issues with some factors skipping
+#Use to output table but then manually enter
+# stargazer(lm_regional, 
+#           type = 'text', out = 'Data/Visualize/stargazer/regional_table.txt',
+#           se = list(df_coef_regional[,2]),
+#           p=list(df_coef_regional[,5]))
+
+  #Creating regional table with results repeated 9 times, in 9 columns
+  #Will edit by hand to have it represent results for the 9 ERS Regions in Text Editors
+  #Use dataframes in R to manually edit it to have correct SE and p results
+stargazer(lm_regional,lm_regional,lm_regional,lm_regional,lm_regional,lm_regional,lm_regional,lm_regional,lm_regional,
+          omit=c("ASDCode","Year"), 
+          type = 'text', out = 'Data/Visualize/stargazer/regional_tobeedited_table.txt',
+          omit.stat=c("LL","ser","f"), 
+          se = list(df_coef_regional[,2],df_coef_regional[,2],df_coef_regional[,2],df_coef_regional[,2],
+                    df_coef_regional[,2],df_coef_regional[,2],df_coef_regional[,2],df_coef_regional[,2],df_coef_regional[,2]),
+          p=list(df_coef_regional[,5],df_coef_regional[,5],df_coef_regional[,5],df_coef_regional[,5],df_coef_regional[,5],
+                 df_coef_regional[,5],df_coef_regional[,5],df_coef_regional[,5],df_coef_regional[,5]))
 
 ```
 
