@@ -8,8 +8,59 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
+##Load Packages
+
+```{r}
+#Load the needed packages (install first if necessary)
+library(tidyverse) #Datatable manipulation (all functions)
+library(kableExtra)
+
+#Set options
+  options(scipen=999) #no scientific notation (all)
+
+```
+
+
+
 ## VIF Tables
 Make table with VIFs or maybe a correlation plot (library = corrplot) for the landscape and patch metrics (Percent crop, edge density crops, mean patch size crops, large farms, crop diversity, landscape diversity) for final best model. 
+
+```{r}
+
+#Load final models with edge crops and with natural-crop edges
+vif_diversity<-readr::read_csv("Data/Analysis/df/vif_diversity.csv")
+edgemodels_vif<-readr::read_csv("Data/Analysis/df/edgemodels_vif.csv")
+
+vif_cropedge<-vif_diversity[,c(1,4)] %>% 
+  mutate(Variable=c("Percent Cropland", "Crop Edge Density", "Average Crop Area", 
+                    "Proportion Large Farms", "Proportion soybeans & small grains", 
+                    "Proportion corn", "Proportion fruit & vegetables", 
+                    "Landscape Diversity", "Cropland Diversity", "Year", "ASD Code")) %>% 
+  select(3,2)
+colnames(vif_cropedge)<-c("Variable", "VIF")
+
+vif_naturalcropedge<-edgemodels_vif %>%  
+  filter(model=="natural") %>% 
+    mutate(Variable=c("Percent Cropland", "Natural-Crop Edge Density", "Average Crop Area", 
+                    "Proportion Large Farms", "Proportion soybeans & small grains", 
+                    "Proportion corn", "Proportion fruit & vegetables", 
+                    "Landscape Diversity", "Cropland Diversity", "Year", "ASD Code")) %>% 
+  select(6,4)
+colnames(vif_naturalcropedge)<-c("Variable", "VIF")
+
+write_csv(vif_cropedge, "Data/Visualize/VIF/cropedge_vif_table.csv")
+write_csv(vif_naturalcropedge, "Data/Visualize/VIF/naturalcropedge_vif_table.csv")
+
+library(xtable)
+xtable(vif_cropedge)
+print.xtable(xtable(vif_cropedge), type="html", file="Data/Visualize/VIF/cropedge_vif_table.html",include.rownames=F)
+print.xtable(xtable(vif_naturalcropedge), type="html", file="Data/Visualize/VIF/naturalcropedge_vif_table.html",include.rownames=F)
+
+
+
+```
+
+
 
 ## Conley Standard Errors
 Perform Conley standard errors using best model on centroids of counties (200 km, no time lags) to examine spatial autocorrelation on final best model, without regional effects (http://www.trfetzer.com/using-r-to-estimate-spatial-hac-errors-per-conley/)
