@@ -1,0 +1,10 @@
+Variable,Estimate,Cluster SE,OLS,Spatial,Spatial_HAC
+Percent Cropland,0.02,0.006,0.005,0.005,0.005
+Natural-Crop Edge Density,0.004,0.004,0.003,0.003,0.003
+Average Crop Area,-0.001,0.003,0.003,0.003,0.003
+Proportion Large Farms,0.096,0.006,0.003,0.005,0.005
+Proportion soybeans and small grains,-0.008,0.005,0.003,0.004,0.004
+Proportion corn,0.032,0.005,0.004,0.004,0.004
+Proportion fruit and vegetables,0.046,0.006,0.002,0.005,0.005
+Landscape Diversity,-0.005,0.004,0.002,0.003,0.003
+Cropland Diversity,0.018,0.002,0.002,0.002,0.002

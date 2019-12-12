@@ -13,7 +13,17 @@ knitr::opts_chunk$set(echo = TRUE)
 ```{r}
 #Load the needed packages (install first if necessary)
 library(tidyverse) #Datatable manipulation (all functions)
-library(kableExtra)
+library(xtable) #Create VIF tables with xtable
+library(corrplot) #Correlation Plot
+library(RColorBrewer) #Color Brewer Palettes
+library(sf)#shapefiles
+library(ggplot2) #Plotting ggplot
+library(stargazer)#Making regression tables
+library(data.table)#Table format needed for conley
+library(lfe)#Need for felm, for conley
+library(Rcpp)#Need to read .cpp file for conley
+library(RcppArmadillo)#Need to read .cpp file for conley
+library(dendextend)#extending dendogram objects, for conley maybe
 
 #Set options
   options(scipen=999) #no scientific notation (all)
@@ -51,23 +61,301 @@ colnames(vif_naturalcropedge)<-c("Variable", "VIF")
 write_csv(vif_cropedge, "Data/Visualize/VIF/cropedge_vif_table.csv")
 write_csv(vif_naturalcropedge, "Data/Visualize/VIF/naturalcropedge_vif_table.csv")
 
-library(xtable)
-xtable(vif_cropedge)
+#Print xtables to html, then snip to PNGs
 print.xtable(xtable(vif_cropedge), type="html", file="Data/Visualize/VIF/cropedge_vif_table.html",include.rownames=F)
 print.xtable(xtable(vif_naturalcropedge), type="html", file="Data/Visualize/VIF/naturalcropedge_vif_table.html",include.rownames=F)
 
+#############
+#Correlation Plots for best models-with crop edge and natural-crop edge
+load("Data/Analysis/models/df/data_diversity.Rda")
+load("Data/Analysis/models/df/data_natural.Rda")
+
+corrdf_cropedge<-data_diversity[,6:14] #Only the covariates
+corrdf_natcropedge<-data_natural[,6:14]#Only the covariates
+
+#Plot and save correlation matrices
+png(filename="Data/Visualize/VIF/cropedge_corrplot.png",width=600, height=600)
+corrplot::corrplot(cor(corrdf_cropedge), type = "upper", order = "hclust", 
+         tl.col = "black", tl.srt = 45,col=brewer.pal(n=8, name="RdYlBu"))
+dev.off()
+
+png(filename="Data/Visualize/VIF/natcropedge_corrplot.png", width=600, height=600)
+corrplot::corrplot(cor(corrdf_natcropedge), type = "upper", order = "hclust", 
+         tl.col = "black", tl.srt = 45,col=brewer.pal(n=8, name="RdYlBu"))
+dev.off()
 
 
 ```
 
 
-
 ## Conley Standard Errors
 Perform Conley standard errors using best model on centroids of counties (200 km, no time lags) to examine spatial autocorrelation on final best model, without regional effects (http://www.trfetzer.com/using-r-to-estimate-spatial-hac-errors-per-conley/)
+
+### Create linear model
+
+```{r}
+
+
+# Loading R function to compute Conley SEs:
+#Did not work by itself, but files are downloaded
+    # source("~/Dropbox/ConleySEs/ConleySEs_17June2015.R")#original
+    # install.packages("devtools")
+    # library(devtools)
+    # install_github("shommazumder/shomR")
+    # library(shomR)
+
+#Loading sample data and preparing for model
+load("Data/DataProcessing/df/fulldata.rda")
+data_conley<-fulldata %>% #Starting same as data_natural
+  select(FIPS, Year, ASDCode, ERSCode,
+         insect_planted, pland_crops, natural_crops_ed, mna_crops, largefarm_planted,
+         soysmallgrain_planted, corn_planted, fruitveg_planted,
+         msidi, SDI) %>% 
+    filter(!Year==2002)%>% #Only 3 years of data
+  na.omit() %>% #8939 observations (match crops_3yrs and diversity)
+  mutate_at(scale, .vars=vars(-FIPS, -Year, -ERSCode, -ASDCode, -insect_planted)) %>%  #Scale by subtracting column mean and dividing by column SD
+    rename(Insecticide=insect_planted,
+         PercentCrop=pland_crops,
+         NaturalCropEdge=natural_crops_ed,
+         MeanCropArea=mna_crops,
+         LargeFarms=largefarm_planted,
+         SoyGrains=soysmallgrain_planted,
+         Corn=corn_planted,
+         FruitVeg=fruitveg_planted,
+         LandDiversity=msidi,
+         CropDiversity=SDI)
+
+#Need to add lat and lon values from map of FIPS
+counties<-read_sf(dsn = "C:/Users/shemc/Documents/UCSB/NLCD/Data/TIGER2018_Counties", layer = "tl_2018_us_county") %>%  
+  dplyr::mutate(FIPS=paste0(STATEFP,COUNTYFP))
+counties<-st_transform(counties, "+proj=aea +lat_1=29.5 +lat_2=45.5 +lat_0=23 +lon_0=-96 +x_0=0 +y_0=0 +ellps=WGS84
+                     +towgs84=0,0,0,-0,-0,-0,0 +units=m +no_defs ") #Project counties to nlcd projection
+contig48_counties<-subset(counties,counties$STATEFP!="02"& counties$STATEFP!="15"&
+                            counties$STATEFP!="60"&counties$STATEFP!="66"&
+                            counties$STATEFP!="69"&counties$STATEFP!="72"&
+                            counties$STATEFP!="74"&counties$STATEFP!="78") %>% 
+  select(FIPS, geometry)
+
+#Get centroids
+sf_cent <- st_centroid(contig48_counties)
+sf_coord<-st_coordinates(sf_cent)
+fips_coords<-cbind(sf_cent, sf_coord) %>% 
+  mutate(FIPS=as.numeric(FIPS))
+
+#Join data with regression data
+conleydf<-data_conley %>% 
+  left_join(fips_coords) %>% 
+  rename(lat=X, lon=Y)
+
+#Double check calculated correctly by plotting (looks good)
+  # library(tmap)
+  # tm_shape(contig48_counties)+tm_fill(col="white")+
+  #   tm_borders(col = "gray40", lwd = 1)+
+  # tm_shape(sf_cent) + 
+  #   tm_dots()
+
+
+lm_conley<-felm(Insecticide~PercentCrop+NaturalCropEdge+MeanCropArea+LargeFarms+
+                  SoyGrains+Corn+FruitVeg+LandDiversity+CropDiversity -1 |Year +ASDCode | 0 | lat +lon,
+                data=conleydf, keepCX=TRUE) #Identical coefficients to lm_natural, slightly different SE
+
+conley_coef<-coefficients(lm_conley) %>%
+  round(3) %>% 
+  data.frame() %>% 
+  tibble::rownames_to_column()
+colnames(conley_coef)<-c("Variable", "Estimate")
+
+conley_cse<-lm_conley$cse %>% 
+  round(3) %>% 
+  data.frame() %>% 
+  tibble::rownames_to_column()
+colnames(conley_cse)<-c("Variable", "Cluster SE")
+
+stargazer::stargazer(lm_conley, type="text", out="Data/Visualize/conley/conley_stargazer_table.txt",
+                               covariate.labels=c("Percent Cropland", "Natural-Crop Edge Density", 
+                                                  "Average Crop Area", "Proportion Large Farms",
+                             "Proportion soybeans and small grains", "Proportion corn", "Proportion fruit and vegetables",
+                             "Landscape Diversity", "Cropland Diversity"),
+                     omit.stat=c("LL","ser","f"))
+
+
+    # Use the felm() from the lfe package to estimate model with year and county fixed effects.
+    # Two important points:
+    # (1) We specify our latitude and longitude coordinates as the cluster variables, so that they are included in the output (m).
+    # (2) We specify keepCx = TRUE, so that the centered data is included in the output (m).
+
+```
+
+### Perform Conley SE
+
+```{r}
+
+#Conley function will not work (not the downloaded one, or me recreating it)
+  #So have created the function effectively below, still can call the cpp function and iterate Obs function
+  #Code developed from https://github.com/shommazumder/shomR
+
+#0 lag time and 200km
+
+#Define variables
+reg = lm_conley
+unit = "ASDCode" 
+time = "Year"
+lat = "lat" 
+lon = "lon"
+dist_fn = "SH" #default is "haversine"
+dist_cutoff = 200 #default is 500
+lag_cutoff = 0 #default is 5
+cores = 1
+verbose = TRUE
+kernel = "bartlett" 
+# lat_scale = 111 #seem not to need
+balanced_pnl = FALSE
+
+pkgs <- c("data.table", "lfe", "geosphere", "Rcpp", "RcppArmadillo")
+invisible(sapply(pkgs, require, character.only = TRUE))
+library(Rcpp)
+sourceCpp("R/Visualize/cpp-functions.cpp")
+
+
+  Fac2Num <- function(x) {as.numeric(as.character(x))}
+  source("R/Visualize/iterateObs.R")
+  if(cores > 1) {invisible(library(parallel))}
+  
+  if(class(reg) == "felm") {
+    Xvars <- rownames(reg$coefficients)
+    dt = data.table(reg$cY, reg$cX,
+                    fe1 = Fac2Num(reg$fe[[1]]),
+                    fe2 = Fac2Num(reg$fe[[2]]),
+                    coord1 = Fac2Num(reg$clustervar[[1]]),
+                    coord2 = Fac2Num(reg$clustervar[[2]]))
+    setnames(dt,
+             c("fe1", "fe2", "coord1", "coord2"),
+             c(names(reg$fe), names(reg$clustervar)))
+    dt = dt[, e := as.numeric(reg$residuals)]
+    
+  } else {
+    message("Model class not recognized.")
+    break
+  }
+  
+  n <- nrow(dt)
+  k <- length(Xvars)
+  
+  # Renaming variables:
+  orig_names <- c(unit, time, lat, lon)
+  new_names <- c("unit", "time", "lat", "lon")
+  setnames(dt, orig_names, new_names)
+  
+  # Empty Matrix:
+  XeeX <- matrix(nrow = k, ncol = k, 0)
+  
+  #================================================================
+  # Correct for spatial correlation:
+  timeUnique <- unique(dt[, time])
+  Ntime <- length(timeUnique)
+  setkey(dt, time)
+  
+  if(verbose){message("Starting to loop over time periods...")}
+  
+  if(balanced_pnl){
+    sub_dt <- dt[time == timeUnique[1]]
+    lat <- sub_dt[, lat]; lon <- sub_dt[, lon]; rm(sub_dt)
+    
+    if(balanced_pnl & verbose){message("Computing Distance Matrix...")}
+    
+    d <- DistMat(cbind(lat, lon), cutoff = dist_cutoff, kernel, dist_fn)
+    rm(list = c("lat", "lon"))
+  }
+  
+  if(cores == 1) {
+    XeeXhs <- lapply(timeUnique, function(t) iterateObs(sub_index = t,
+                                                        type = "spatial", cutoff = dist_cutoff))
+  } else {
+    XeeXhs <- mclapply(timeUnique, function(t) iterateObs(sub_index = t,
+                                                          type = "spatial", cutoff = dist_cutoff), mc.cores = cores)
+  }
+  
+  if(balanced_pnl){rm(d)}
+  
+  # First Reduce:
+  XeeX <- Reduce("+",  XeeXhs)
+  
+  # Generate VCE for only cross-sectional spatial correlation:
+  X <- as.matrix(dt[, eval(Xvars), with = FALSE])
+  invXX <- solve(t(X) %*% X) * n
+  
+  V_spatial <- invXX %*% (XeeX / n) %*% invXX / n
+  
+  V_spatial <- (V_spatial + t(V_spatial)) / 2
+  
+  if(verbose) {message("Computed Spatial VCOV.")}
+  
+  #================================================================
+  # Correct for serial correlation:
+  panelUnique <- unique(dt[, unit])
+  Npanel <- length(panelUnique)
+  setkey(dt, unit)
+  
+  if(verbose){message("Starting to loop over units...")}
+  
+  if(cores == 1) {
+    XeeXhs <- lapply(panelUnique, function(t) iterateObs(sub_index = t,
+                                                         type = "serial", cutoff = lag_cutoff))
+  } else {
+    XeeXhs <- mclapply(panelUnique,function(t) iterateObs(sub_index = t,
+                                                          type = "serial", cutoff = lag_cutoff), mc.cores = cores)
+  }
+  
+  XeeX_serial <- Reduce("+",  XeeXhs)
+  
+  XeeX <- XeeX + XeeX_serial
+  
+  V_spatial_HAC <- invXX %*% (XeeX / n) %*% invXX / n
+  V_spatial_HAC <- (V_spatial_HAC + t(V_spatial_HAC)) / 2
+  
+  return_list <- list(
+    "OLS" = reg$vcv,
+    "Spatial" = V_spatial,
+    "Spatial_HAC" = V_spatial_HAC)
+
+
+```
+
+
+### Format Conley SE, and save coefficients and SE
+
+```{r}
+
+SE<-return_list 
+SE_df<-sapply(SE, function(x) diag(sqrt(abs(x)))) %>% round(3) %>% #Added abs, does not change values, just keeps headers
+  data.frame() %>% 
+  tibble::rownames_to_column() %>% 
+  rename(Variable=rowname)
+
+final_conley_df<-conley_coef %>% 
+  dplyr::left_join(conley_cse, by="Variable") %>% 
+  dplyr::left_join(SE_df, by="Variable") %>% 
+  mutate(Variable=c("Percent Cropland", "Natural-Crop Edge Density", "Average Crop Area", "Proportion Large Farms",
+                             "Proportion soybeans and small grains", "Proportion corn", "Proportion fruit and vegetables",
+                             "Landscape Diversity", "Cropland Diversity"))
+final_conley_df
+
+#Save as csv
+write_csv(final_conley_df, "Data/Visualize/conley/final_conley_df.csv")
+
+```
 
 
 ## Robustness Check: <1% Cropland
 Remove counties with <1% of cropland (NLCD) and run best model, reporting in supplementary section on how many observations it removes; create map showing which counties are removed
+
+```{r}
+
+load("Data/DataProcessing/df/fulldata.rda")
+
+
+```
+
 
 
 ## Robustness Check: Percent Crop (NLCD) vs Harvested Crop (CoA)
