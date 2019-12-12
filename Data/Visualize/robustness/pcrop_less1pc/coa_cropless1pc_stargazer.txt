@@ -1,0 +1,42 @@
+
+================================================================
+                                         Dependent variable:    
+                                     ---------------------------
+                                             Insecticide        
+----------------------------------------------------------------
+Percent Cropland                              0.023***          
+                                               (0.007)          
+                                                                
+Natural-Crop Edge Density                       0.002           
+                                               (0.005)          
+                                                                
+Average Crop Area                              -0.003           
+                                               (0.004)          
+                                                                
+Proportion Large Farms                        0.087***          
+                                               (0.007)          
+                                                                
+Proportion soybeans and small grains           -0.008           
+                                               (0.006)          
+                                                                
+Proportion corn                               0.034***          
+                                               (0.007)          
+                                                                
+Proportion fruit and vegetables               0.050***          
+                                               (0.010)          
+                                                                
+Landscape Diversity                            -0.006           
+                                               (0.004)          
+                                                                
+Cropland Diversity                            0.017***          
+                                               (0.004)          
+                                                                
+Constant                                      0.390***          
+                                               (0.006)          
+                                                                
+----------------------------------------------------------------
+Observations                                    8,319           
+R2                                              0.748           
+Adjusted R2                                     0.738           
+================================================================
+Note:                                *p<0.1; **p<0.05; ***p<0.01
