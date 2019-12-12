@@ -21,6 +21,7 @@ library(stringr)#String detection
 library(tidyverse) #Datatable manipulation (all functions)
 library(dotwhisker) #relabel predictors
 library(stargazer) #Create stargazer tables
+library(clubSandwich) #For coeftest
 
 #Set options
   options(scipen=999) #no scientific notation (all)
