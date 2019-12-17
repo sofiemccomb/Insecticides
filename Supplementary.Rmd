@@ -90,11 +90,6 @@ print.xtable(xtable(vif_naturalcropedge), type="html", file="Data/Visualize/VIF/
 # dev.off()
 
 #Use data_natural as base, demean the covariates based on ASDCode and Year
-transform(dd, 
-    newA = priceA-ave(priceA, weekyear)-ave(priceA, Location_Id),
-    newB = priceB-ave(priceB, weekyear)-ave(priceB, Location_Id)
-)
-
 load("Data/DataProcessing/df/fulldata.rda")
 data_correlation<-fulldata %>% 
   select(FIPS, Year, ASDCode, ERSCode,
@@ -789,6 +784,96 @@ stargazer::stargazer(lm_pcrop_cdl, type="text", omit=c("ASDCode","Year"),
                                covariate.labels=c("Percent Cropland", "Cropland Diversity"),
                      omit.stat=c("LL","ser","f"),se = list(df_coef_pcrop_cdl[,2]),p=list(df_coef_pcrop_cdl[,5]))
 #not as good of a model, R2 only .6 compared to ~.7 or higher in other final models; better than just cropland but not as good
+
+```
+
+
+## Attempt adding in Percent_Natural
+
+```{r}
+
+load("Data/DataProcessing/df/fulldata.rda")
+
+data_plandnatural<-fulldata %>% 
+  select(FIPS, Year, ASDCode, ERSCode,
+         insect_planted, pland_crops, pland_natural, largefarm_planted,
+         soysmallgrain_planted, corn_planted, fruitveg_planted,
+         msidi, SDI) %>% 
+  filter(!Year==2002)%>% #Only 3 years of data
+  na.omit() %>% 
+  mutate_at(scale, .vars=vars(-FIPS, -Year, -ERSCode, -ASDCode, -insect_planted)) %>%  #Scale by subtracting column mean and dividing by column SD
+  rename(Insecticide=insect_planted,
+         PercentCrop=pland_crops,
+         PercentNatural=pland_natural,
+         LargeFarms=largefarm_planted,
+         SoyGrains=soysmallgrain_planted,
+         Corn=corn_planted,
+         FruitVeg=fruitveg_planted,
+         LandDiversity=msidi,
+         CropDiversity=SDI)
+lm_plandnatural<-lm(Insecticide~PercentCrop+PercentNatural+LargeFarms+
+                         SoyGrains+Corn+FruitVeg+LandDiversity+CropDiversity+
+                         factor(Year)+factor(ASDCode), data=data_plandnatural)
+stargazer::stargazer(lm_plandnatural, type="text", omit=c("ASDCode","Year"), 
+                     out="Data/Visualize/plandnatural/plandnatural.txt")
+
+data_correlation<-fulldata %>% 
+  select(FIPS, Year, ASDCode, ERSCode,
+         insect_planted, pland_crops, pland_natural, largefarm_planted,
+         soysmallgrain_planted, corn_planted, fruitveg_planted,
+         msidi, SDI) %>% 
+  filter(!Year==2002)%>% #Only 3 years of data
+  na.omit() %>% #8939 observations (match crops_3yrs and diversity)
+  rename(Insecticide=insect_planted) %>% 
+  mutate(PercentCrop=pland_crops-ave(pland_crops, Year)-ave(pland_crops, ASDCode),
+         PercentNatural=pland_natural-ave(pland_natural, Year)-ave(pland_natural, ASDCode),
+         LargeFarms=largefarm_planted-ave(largefarm_planted, Year)-ave(largefarm_planted, ASDCode),
+         SoyGrains=soysmallgrain_planted-ave(soysmallgrain_planted, Year)-ave(soysmallgrain_planted, ASDCode),
+         Corn=corn_planted-ave(corn_planted, Year)-ave(corn_planted, ASDCode),
+         FruitVeg=fruitveg_planted-ave(fruitveg_planted, Year)-ave(fruitveg_planted, ASDCode),
+         LandDiversity=msidi-ave(msidi, Year)-ave(msidi, ASDCode),
+         CropDiversity=SDI-ave(SDI, Year)-ave(SDI, ASDCode)) %>% 
+  select(PercentCrop, PercentNatural, LargeFarms, SoyGrains, Corn, FruitVeg, LandDiversity, CropDiversity)
+
+png(filename="Data/Visualize/plandnatural/corrplot.png",width=600, height=600)
+corrplot::corrplot(cor(data_correlation), type = "upper", order = "hclust", 
+                   tl.col = "black", tl.srt = 45,col=brewer.pal(n=8, name="RdYlBu"))
+dev.off()
+
+vif_data<-rownames_to_column(as.data.frame(car::vif(lm_plandnatural)), "term")
+write_csv(vif_data, "Data/Visualize/plandnatural/vif.csv")
+
+df_coef_plandnatural<-lm_plandnatural %>% 
+  clubSandwich::coef_test(vcov = "CR2", cluster = data_plandnatural$ASDCode, test = "Satterthwaite") %>% 
+  tibble::rownames_to_column(var = "term") %>% 
+  rename(estimate=beta, std.error=SE, statistic=tstat, p.value=p_Satt) %>% 
+  dplyr::filter(!stringr::str_detect(term, "(Intercept)"),
+                !stringr::str_detect(term, "factor"))
+
+
+#Plot diversity on x and coefficient on y with SD facet by term
+#Relabel predictors
+plandnatural_plot_df <- df_coef_plandnatural %>%
+  dotwhisker::relabel_predictors(c(PercentCrop = "Percent Cropland",
+                       PercentNatural = "Percent Natural Area",
+                       LargeFarms = " Proportion Large Farm",
+                       SoyGrains= "Proportion Soy & Grains",
+                       Corn= "Proportion Corn",
+                       FruitVeg= "Proportion Fruit & Veg",
+                       LandDiversity= "Landscape Diversity",
+                       CropDiversity="Cropland Diversity"))
+
+plandnatural_compare<-ggplot2::ggplot(plandnatural_plot_df, aes(y=fct_rev(as_factor(term)))) +
+  geom_errorbarh(aes(xmax = estimate + (1.96*std.error), xmin = estimate - (1.96*std.error)),
+                height=0.3, size=1, colour="royalblue")+
+  geom_point(aes(x=estimate), size=2, colour="royalblue")+
+  geom_vline(xintercept = 0, colour = "grey60", linetype = 2) +
+  theme_bw() + ylab("")+xlab("Coefficient Estimate")+
+  theme(text = element_text(size = 20))
+
+  ggexport(plandnatural_compare, filename = "Data/Visualize/plandnatural/plandnatural.png",
+           width = 900, height = 800)
+
 
 ```
 
