@@ -69,22 +69,56 @@ print.xtable(xtable(vif_naturalcropedge), type="html", file="Data/Visualize/VIF/
 
 #############
 #Correlation Plots for best models-with crop edge and natural-crop edge
-load("Data/Analysis/models/df/data_diversity.Rda")
-load("Data/Analysis/models/df/data_natural.Rda")
+# load("Data/Analysis/models/df/data_diversity.Rda")
+# load("Data/Analysis/models/df/data_natural.Rda")
+# 
+# corrdf_cropedge<-data_diversity[,6:14] #Only the covariates
+# corrdf_natcropedge<-data_natural[,6:14]#Only the covariates
 
-corrdf_cropedge<-data_diversity[,6:14] #Only the covariates
-corrdf_natcropedge<-data_natural[,6:14]#Only the covariates
+# #Plot and save correlation matrices
+# png(filename="Data/Visualize/VIF/cropedge_corrplot.png",width=600, height=600)
+# corrplot::corrplot(cor(corrdf_cropedge), type = "upper", order = "hclust", 
+#          tl.col = "black", tl.srt = 45,col=brewer.pal(n=8, name="RdYlBu"))
+# dev.off()
+# 
+# png(filename="Data/Visualize/VIF/natcropedge_corrplot.png", width=600, height=600)
+# corrplot::corrplot(cor(corrdf_natcropedge), type = "upper", order = "hclust", 
+#          tl.col = "black", tl.srt = 45,col=brewer.pal(n=8, name="RdYlBu"))
+# dev.off()
 
-#Plot and save correlation matrices
-png(filename="Data/Visualize/VIF/cropedge_corrplot.png",width=600, height=600)
-corrplot::corrplot(cor(corrdf_cropedge), type = "upper", order = "hclust", 
-         tl.col = "black", tl.srt = 45,col=brewer.pal(n=8, name="RdYlBu"))
+#Use data_natural as base, demean the covariates based on ASDCode and Year
+transform(dd, 
+    newA = priceA-ave(priceA, weekyear)-ave(priceA, Location_Id),
+    newB = priceB-ave(priceB, weekyear)-ave(priceB, Location_Id)
+)
+
+load("Data/DataProcessing/df/fulldata.rda")
+data_correlation<-fulldata %>% 
+  select(FIPS, Year, ASDCode, ERSCode,
+         insect_planted, pland_crops, natural_crops_ed, mna_crops, largefarm_planted,
+         soysmallgrain_planted, corn_planted, fruitveg_planted,
+         msidi, SDI) %>% 
+    filter(!Year==2002)%>% #Only 3 years of data
+  na.omit() %>% #8939 observations (match crops_3yrs and diversity)
+    rename(Insecticide=insect_planted) %>% 
+  mutate(PercentCrop=pland_crops-ave(pland_crops, Year)-ave(pland_crops, ASDCode),
+         NaturalCropEdge=natural_crops_ed-ave(natural_crops_ed, Year)-ave(natural_crops_ed, ASDCode),
+         MeanCropArea=mna_crops-ave(mna_crops, Year)-ave(mna_crops, ASDCode),
+         LargeFarms=largefarm_planted-ave(largefarm_planted, Year)-ave(largefarm_planted, ASDCode),
+         SoyGrains=soysmallgrain_planted-ave(soysmallgrain_planted, Year)-ave(soysmallgrain_planted, ASDCode),
+         Corn=corn_planted-ave(corn_planted, Year)-ave(corn_planted, ASDCode),
+         FruitVeg=fruitveg_planted-ave(fruitveg_planted, Year)-ave(fruitveg_planted, ASDCode),
+         LandDiversity=msidi-ave(msidi, Year)-ave(msidi, ASDCode),
+         CropDiversity=SDI-ave(SDI, Year)-ave(SDI, ASDCode)) %>% 
+  select(PercentCrop, NaturalCropEdge, MeanCropArea, LargeFarms, SoyGrains, Corn, FruitVeg, LandDiversity, CropDiversity)
+
+#Using this site as basis:https://stackoverflow.com/questions/27431735/demeaning-data-on-multiple-levels-in-r
+
+png(filename="Data/Visualize/VIF/demeaned_corrplot.png",width=600, height=600)
+corrplot::corrplot(cor(data_correlation), type = "upper", order = "hclust", 
+          tl.col = "black", tl.srt = 45,col=brewer.pal(n=8, name="RdYlBu"))
 dev.off()
 
-png(filename="Data/Visualize/VIF/natcropedge_corrplot.png", width=600, height=600)
-corrplot::corrplot(cor(corrdf_natcropedge), type = "upper", order = "hclust", 
-         tl.col = "black", tl.srt = 45,col=brewer.pal(n=8, name="RdYlBu"))
-dev.off()
 
 
 ```
@@ -548,6 +582,57 @@ Harv_crop and pland crops almost identical estimates.
 Not investigating <1% cropland on this model, because should be very similar to effect seen when using pland_crop.
 
 
+##Robusntess Check: Combine Above Models
+```{r}
+
+#Read in natural for comparison
+load("Data/Analysis/models/lm_natural.Rda")
+df_coef_natural<-lm_natural %>% 
+  clubSandwich::coef_test(vcov = "CR2", cluster = data_natural$ASDCode, test = "Satterthwaite")
+
+#Version of harvcrop with same percentcrop name
+data_harvcrop_comb<-fulldata %>% 
+  select(FIPS, Year, ASDCode, ERSCode, harv_county,
+         insect_planted, pland_crops, natural_crops_ed, mna_crops, largefarm_planted,
+         soysmallgrain_planted, corn_planted, fruitveg_planted,
+         msidi, SDI) %>% 
+    filter(!Year==2002)%>% #Only 3 years of data
+  na.omit() %>% #8939 observations (same as data_natural)
+  mutate_at(scale, .vars=vars(-FIPS, -Year, -ERSCode, -ASDCode, -insect_planted)) %>%  #Scale by subtracting column mean and dividing by column SD
+    rename(Insecticide=insect_planted,
+         PercentCrop=harv_county,
+         NaturalCropEdge=natural_crops_ed,
+         MeanCropArea=mna_crops,
+         LargeFarms=largefarm_planted,
+         SoyGrains=soysmallgrain_planted,
+         Corn=corn_planted,
+         FruitVeg=fruitveg_planted,
+         LandDiversity=msidi,
+         CropDiversity=SDI)
+
+#8939 observations
+lm_harvcrop_comb<-lm(Insecticide~PercentCrop+NaturalCropEdge+MeanCropArea+LargeFarms+
+                  SoyGrains+Corn+FruitVeg+LandDiversity+CropDiversity+
+                  factor(Year)+factor(ASDCode), data=data_harvcrop_comb)
+df_coef_harvcrop_comb<-lm_harvcrop_comb %>% 
+  clubSandwich::coef_test(vcov = "CR2", cluster = data_harvcrop_comb$ASDCode, test = "Satterthwaite")
+
+#Stargazer of results together
+stargazer::stargazer(lm_natural, lm_pcrop_less1pc, lm_coa_cropless1pc, lm_harvcrop_comb, type="text", omit=c("ASDCode","Year"),
+                     out="Data/Visualize/robustness/robustmodels_stargazer.txt",
+                               covariate.labels=c("Percent Cropland", "Natural-Crop Edge Density", 
+                                                  "Average Crop Area", "Proportion Large Farms",
+                             "Proportion soybeans and small grains", "Proportion corn", "Proportion fruit and vegetables",
+                             "Landscape Diversity", "Cropland Diversity"),
+                     omit.stat=c("LL","ser","f"),
+                     se = list(df_coef_natural[,2],df_coef_pcropless1pc[,2],df_coef_coa_cropless1pc[,2],df_coef_harvcrop_comb[,2]),
+                     p=list(df_coef_natural[,5],df_coef_pcropless1pc[,5],df_coef_coa_cropless1pc[,5],df_coef_harvcrop_comb[,5]))
+
+
+```
+
+
+
 ## Robustness Check: Fixed Effects County vs ASD
 Run best model with fixed effects on county instead of ASD for supplementary figure, including table of xtsum output showing ASD better than county level in terms of remaining variation
 
@@ -562,14 +647,12 @@ lm_FIPS<-lm(Insecticide~PercentCrop+NaturalCropEdge+MeanCropArea+LargeFarms+
                   factor(Year)+factor(FIPS), data=data_natural)
 #Saved to put on R server online
 
-#Having issues with memory, says cannot allocate vector of size 70.6MB
-  #Save lm as Rdata, and run coef on R server, and save that as Rda, then make stargazer
-# df_coef_FIPS<-lm_FIPS%>% 
-#   clubSandwich::coef_test(vcov = "CR2", cluster = data_natural$FIPS, test = "Satterthwaite")
+#Cluster around ASDCode because FIPS too many, won't work-ran on R server so faster
+# df_coef_FIPS<-lm_FIPS%>%
+#   clubSandwich::coef_test(vcov = "CR2", cluster = data_natural$ASDCode, test = "Satterthwaite")
+load("Data/Visualize/robustness/FIPS/df_coef_FIPS.Rda")
 
-#Need to re-run lm and download df_coef_FIPS
 
-#cluster robust takes to long, so writing as regular
 
 stargazer::stargazer(lm_FIPS, type="text", omit=c("FIPS","Year"),
                      out="Data/Visualize/robustness/FIPS/FIPS_stargazer.txt",
@@ -577,7 +660,8 @@ stargazer::stargazer(lm_FIPS, type="text", omit=c("FIPS","Year"),
                                                   "Average Crop Area", "Proportion Large Farms",
                              "Proportion soybeans and small grains", "Proportion corn", "Proportion fruit and vegetables",
                              "Landscape Diversity", "Cropland Diversity"),
-                     omit.stat=c("LL","ser","f"))
+                     omit.stat=c("LL","ser","f"),
+                     se = list(df_coef_FIPS[,2]),p=list(df_coef_FIPS[,5]))
 
 
 ```
@@ -654,3 +738,54 @@ stargazer::stargazer(lm_coa_1997, lm_coa_2002, lm_coa_2007, lm_coa_2012, lm_coa_
 ```
 
  
+## Create Model Versions with Only Percent Cropland and Percent Cropland & Cropland Diversity
+
+```{r}
+
+#Based off natural dataset so easier to compare results
+data_pcrop<-fulldata %>% 
+  select(FIPS, Year, ASDCode, ERSCode,
+         insect_planted, pland_crops, natural_crops_ed, mna_crops, largefarm_planted,
+         soysmallgrain_planted, corn_planted, fruitveg_planted,
+         msidi, SDI) %>% 
+    filter(!Year==2002)%>% #Only 3 years of data
+  na.omit() %>% #8939 observations (match crops_3yrs and diversity)
+  select(FIPS, Year, ASDCode, ERSCode,insect_planted, pland_crops) %>% 
+  mutate_at(scale, .vars=vars(-FIPS, -Year, -ERSCode, -ASDCode, -insect_planted)) %>%  #Scale by subtracting column mean and dividing by column SD
+    rename(Insecticide=insect_planted,
+         PercentCrop=pland_crops)
+
+lm_pcrop<-lm(Insecticide~PercentCrop+factor(Year)+factor(ASDCode), data=data_pcrop)
+df_coef_pcrop<-lm_pcrop%>% clubSandwich::coef_test(vcov = "CR2", cluster = data_pcrop$ASDCode, test = "Satterthwaite")
+stargazer::stargazer(lm_pcrop, type="text", omit=c("ASDCode","Year"),
+                     out="Data/Visualize/simple/pcrop_stargazer.txt",
+                               covariate.labels=c("Percent Cropland"),
+                     omit.stat=c("LL","ser","f"),se = list(df_coef_pcrop[,2]),p=list(df_coef_pcrop[,5]))
+#not as good of a model, R2 only .6 compared to ~.7 or higher in other final models
+
+
+
+#Based off natural dataset so easier to compare results
+data_pcrop_cdl<-fulldata %>% 
+  select(FIPS, Year, ASDCode, ERSCode,
+         insect_planted, pland_crops, natural_crops_ed, mna_crops, largefarm_planted,
+         soysmallgrain_planted, corn_planted, fruitveg_planted,
+         msidi, SDI) %>% 
+    filter(!Year==2002)%>% #Only 3 years of data
+  na.omit() %>% #8939 observations (match crops_3yrs and diversity)
+  select(FIPS, Year, ASDCode, ERSCode,insect_planted, pland_crops, SDI) %>% 
+  mutate_at(scale, .vars=vars(-FIPS, -Year, -ERSCode, -ASDCode, -insect_planted)) %>%  #Scale by subtracting column mean and dividing by column SD
+    rename(Insecticide=insect_planted,
+         PercentCrop=pland_crops,
+         CropDiversity=SDI)
+
+lm_pcrop_cdl<-lm(Insecticide~PercentCrop+CropDiversity+factor(Year)+factor(ASDCode), data=data_pcrop_cdl)
+df_coef_pcrop_cdl<-lm_pcrop_cdl%>% clubSandwich::coef_test(vcov = "CR2", cluster = data_pcrop_cdl$ASDCode, test = "Satterthwaite")
+stargazer::stargazer(lm_pcrop_cdl, type="text", omit=c("ASDCode","Year"),
+                     out="Data/Visualize/simple/pcrop_cdl_stargazer.txt",
+                               covariate.labels=c("Percent Cropland", "Cropland Diversity"),
+                     omit.stat=c("LL","ser","f"),se = list(df_coef_pcrop_cdl[,2]),p=list(df_coef_pcrop_cdl[,5]))
+#not as good of a model, R2 only .6 compared to ~.7 or higher in other final models; better than just cropland but not as good
+
+```
+

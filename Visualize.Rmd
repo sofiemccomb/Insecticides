@@ -156,7 +156,7 @@ basemodels_plot_df <- basemodels_df_coef %>%
                        FruitVeg= "Proportion Fruit & Veg"))
 
 basemodels_compare<-ggplot2::ggplot(basemodels_plot_df, aes(x = model, color=model)) +
-  geom_errorbar(aes(ymax = estimate + std.error, ymin = estimate - std.error),
+  geom_errorbar(aes(ymax = estimate + (1.96*std.error), ymin = estimate - (1.96*std.error)),
                 position = "dodge", width=0.5, size=1)+
   geom_point(aes(y=estimate), size=3)+
    geom_hline(yintercept = 0, colour = "grey60", linetype = 2) +
@@ -195,7 +195,7 @@ diversity_plot_df <- df_coef_diversity %>%
                        CropDiversity="Cropland Diversity"))
 
 diversity_compare<-ggplot2::ggplot(diversity_plot_df, aes(y=fct_rev(as_factor(term)))) +
-  geom_errorbarh(aes(xmax = estimate + std.error, xmin = estimate - std.error),
+  geom_errorbarh(aes(xmax = estimate + (1.96*std.error), xmin = estimate - (1.96*std.error)),
                 height=0.3, size=1, colour="royalblue")+
   geom_point(aes(x=estimate), size=2, colour="royalblue")+
   geom_vline(xintercept = 0, colour = "grey60", linetype = 2) +
@@ -238,7 +238,7 @@ edgemodels_plot_df <- edgemodels_df_coef %>%
 
 
 edgemodels_compare<-ggplot2::ggplot(edgemodels_plot_df, aes(x = modelorder, color=modelorder)) +
-  geom_errorbar(aes(ymax = estimate + std.error, ymin = estimate - std.error),
+  geom_errorbar(aes(ymax = estimate + (1.96*std.error), ymin = estimate - (1.96*std.error)),
                 position = "dodge", width=0.5, size=1)+
    geom_point(aes(y=estimate), size=3)+
    geom_hline(yintercept = 0, colour = "grey60", linetype = 2) +
@@ -328,7 +328,7 @@ edgemodels_compare<-ggplot2::ggplot(edgemodels_plot_df, aes(x = modelorder, colo
    mutate(term=as.factor(term))
  
  combinededgemodels_compare<-ggplot2::ggplot(combinededgemodels_plot_df, aes(x = modelorder, color=modelorder)) +
-  geom_errorbar(aes(ymax = estimate + std.error, ymin = estimate - std.error),
+  geom_errorbar(aes(ymax = estimate + (1.96*std.error), ymin = estimate - (1.96*std.error)),
                 position = "dodge", width=0.5, size=1)+
    geom_point(aes(y=estimate), size=3)+
    geom_hline(yintercept = 0, colour = "grey60", linetype = 2) +
@@ -371,7 +371,7 @@ cbPalette <- c("#ffd447", "#ff8787", "#cdc89e", "#eeaa55", "#a5a5a5", "#a6d1ef",
 #The colors of the ERS map created by the USDA
 
 regionalmodels_compare<-ggplot2::ggplot(regionalmodels_plot_df, aes(x = factor(ERS), color = factor(ERS))) +
-  geom_errorbar(aes(ymax = estimate + std.error, ymin = estimate - std.error),
+  geom_errorbar(aes(ymax = estimate + (1.96*std.error), ymin = estimate - (1.96*std.error)),
                 position = "dodge",width=0.5, size=1)+
   geom_point(aes(y=estimate), size=3)+
   facet_wrap(~term)+
