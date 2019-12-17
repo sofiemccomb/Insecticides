@@ -8,6 +8,9 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
+Saved files for Supplementary Rmd do not have their own folder under Data, and instead can be found under the visualize folder, so that all present-day visualizations can be kept together for easy viewing.
+
+
 ##Load Packages
 
 ```{r}
