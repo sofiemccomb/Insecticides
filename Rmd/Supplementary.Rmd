@@ -90,6 +90,34 @@ print.xtable(xtable(vif_naturalcropedge), type="html", file="Data/Visualize/VIF/
 # dev.off()
 
 #Use data_natural as base, demean the covariates based on ASDCode and Year
+# load("Data/DataProcessing/df/fulldata.rda")
+# data_correlation<-fulldata %>% 
+#   select(FIPS, Year, ASDCode, ERSCode,
+#          insect_planted, pland_crops, natural_crops_ed, mna_crops, largefarm_planted,
+#          soysmallgrain_planted, corn_planted, fruitveg_planted,
+#          msidi, SDI) %>% 
+#     filter(!Year==2002)%>% #Only 3 years of data
+#   na.omit() %>% #8939 observations (match crops_3yrs and diversity)
+#     rename(Insecticide=insect_planted) %>% 
+#   mutate(PercentCrop=pland_crops-ave(pland_crops, Year)-ave(pland_crops, ASDCode),
+#          NaturalCropEdge=natural_crops_ed-ave(natural_crops_ed, Year)-ave(natural_crops_ed, ASDCode),
+#          MeanCropArea=mna_crops-ave(mna_crops, Year)-ave(mna_crops, ASDCode),
+#          LargeFarms=largefarm_planted-ave(largefarm_planted, Year)-ave(largefarm_planted, ASDCode),
+#          SoyGrains=soysmallgrain_planted-ave(soysmallgrain_planted, Year)-ave(soysmallgrain_planted, ASDCode),
+#          Corn=corn_planted-ave(corn_planted, Year)-ave(corn_planted, ASDCode),
+#          FruitVeg=fruitveg_planted-ave(fruitveg_planted, Year)-ave(fruitveg_planted, ASDCode),
+#          LandDiversity=msidi-ave(msidi, Year)-ave(msidi, ASDCode),
+#          CropDiversity=SDI-ave(SDI, Year)-ave(SDI, ASDCode)) %>% 
+#   select(PercentCrop, NaturalCropEdge, MeanCropArea, LargeFarms, SoyGrains, Corn, FruitVeg, LandDiversity, CropDiversity)
+# 
+# #Using this site as basis:https://stackoverflow.com/questions/27431735/demeaning-data-on-multiple-levels-in-r
+# 
+# png(filename="Data/Visualize/VIF/demeaned_corrplot.png",width=600, height=600)
+# corrplot::corrplot(cor(data_correlation), type = "upper", order = "hclust", 
+#           tl.col = "black", tl.srt = 45,col=brewer.pal(n=8, name="RdYlBu"))
+# dev.off()
+# 
+
 load("Data/DataProcessing/df/fulldata.rda")
 data_correlation<-fulldata %>% 
   select(FIPS, Year, ASDCode, ERSCode,
@@ -97,23 +125,25 @@ data_correlation<-fulldata %>%
          soysmallgrain_planted, corn_planted, fruitveg_planted,
          msidi, SDI) %>% 
     filter(!Year==2002)%>% #Only 3 years of data
-  na.omit() %>% #8939 observations (match crops_3yrs and diversity)
-    rename(Insecticide=insect_planted) %>% 
-  mutate(PercentCrop=pland_crops-ave(pland_crops, Year)-ave(pland_crops, ASDCode),
-         NaturalCropEdge=natural_crops_ed-ave(natural_crops_ed, Year)-ave(natural_crops_ed, ASDCode),
-         MeanCropArea=mna_crops-ave(mna_crops, Year)-ave(mna_crops, ASDCode),
-         LargeFarms=largefarm_planted-ave(largefarm_planted, Year)-ave(largefarm_planted, ASDCode),
-         SoyGrains=soysmallgrain_planted-ave(soysmallgrain_planted, Year)-ave(soysmallgrain_planted, ASDCode),
-         Corn=corn_planted-ave(corn_planted, Year)-ave(corn_planted, ASDCode),
-         FruitVeg=fruitveg_planted-ave(fruitveg_planted, Year)-ave(fruitveg_planted, ASDCode),
-         LandDiversity=msidi-ave(msidi, Year)-ave(msidi, ASDCode),
-         CropDiversity=SDI-ave(SDI, Year)-ave(SDI, ASDCode)) %>% 
+  na.omit()#8939 observations (match crops_3yrs and diversity)
+  
+data_corr<-data_correlation %>% 
+  mutate(Insecticide=residuals(lm(insect_planted~factor(ASDCode)+factor(Year), data=data_correlation)),
+         PercentCrop=residuals(lm(pland_crops~factor(ASDCode)+factor(Year), data=data_correlation)),
+         NaturalCropEdge=residuals(lm(natural_crops_ed~factor(ASDCode)+factor(Year), data=data_correlation)),
+         MeanCropArea=residuals(lm(mna_crops~factor(ASDCode)+factor(Year), data=data_correlation)),
+         LargeFarms=residuals(lm(largefarm_planted~factor(ASDCode)+factor(Year), data=data_correlation)),
+         SoyGrains=residuals(lm(soysmallgrain_planted~factor(ASDCode)+factor(Year), data=data_correlation)),
+         Corn=residuals(lm(corn_planted~factor(ASDCode)+factor(Year), data=data_correlation)),
+         FruitVeg=residuals(lm(fruitveg_planted~factor(ASDCode)+factor(Year), data=data_correlation)),
+         LandDiversity=residuals(lm(msidi~factor(ASDCode)+factor(Year), data=data_correlation)),
+         CropDiversity=residuals(lm(SDI~factor(ASDCode)+factor(Year), data=data_correlation)))%>% 
   select(PercentCrop, NaturalCropEdge, MeanCropArea, LargeFarms, SoyGrains, Corn, FruitVeg, LandDiversity, CropDiversity)
 
 #Using this site as basis:https://stackoverflow.com/questions/27431735/demeaning-data-on-multiple-levels-in-r
 
-png(filename="Data/Visualize/VIF/demeaned_corrplot.png",width=600, height=600)
-corrplot::corrplot(cor(data_correlation), type = "upper", order = "hclust", 
+png(filename="Data/Visualize/VIF/residuals_corrplot.png",width=600, height=600)
+corrplot::corrplot(cor(data_corr), type = "upper", order = "hclust", 
           tl.col = "black", tl.srt = 45,col=brewer.pal(n=8, name="RdYlBu"))
 dev.off()
 
@@ -876,4 +906,398 @@ plandnatural_compare<-ggplot2::ggplot(plandnatural_plot_df, aes(y=fct_rev(as_fac
 
 
 ```
+
+
+##Create models comparison 
+Of census variables +naturalcropedge, and NLCD variables +natural crop edge
+Aka switching %crop and large farms from COA with % crop and avergae patch size NLCD,
+With and without crop versions
+No diversity
+Currently no CRSE
+
+```{r}
+
+load("Data/DataProcessing/df/fulldata.rda")
+#For 4 years of data
+
+data_surrogates<-fulldata %>% 
+  select(FIPS, Year, ASDCode, ERSCode, 
+         insect_planted, pland_crops, harv_county, natural_crops_ed, mna_crops, largefarm_planted,
+         soysmallgrain_planted, corn_planted, fruitveg_planted) %>% 
+  na.omit() %>% #11924 observations (same as data_natural)
+  mutate_at(scale, .vars=vars(-FIPS, -Year, -ERSCode, -ASDCode, -insect_planted)) %>%  #Scale by subtracting column mean and dividing by column SD
+    rename(Insecticide=insect_planted,
+         HarvestedCropland=harv_county,
+         PercentCropland=pland_crops,
+         NaturalCropEdge=natural_crops_ed,
+         MeanCropArea=mna_crops,
+         LargeFarms=largefarm_planted,
+         SoyGrains=soysmallgrain_planted,
+         Corn=corn_planted,
+         FruitVeg=fruitveg_planted)
+
+#S for surrogates
+#Census variables + natural crop edge, without crops
+lm_s_coa_nocrops<-lm(Insecticide~HarvestedCropland+LargeFarms+NaturalCropEdge+factor(Year)+factor(ASDCode), data=data_surrogates)
+#Census variables + natural crop edge, with crops
+lm_s_coa_crops<-lm(Insecticide~HarvestedCropland+LargeFarms+
+                  SoyGrains+Corn+FruitVeg+NaturalCropEdge+
+                  factor(Year)+factor(ASDCode), data=data_surrogates)
+#NLCD variables + natural crop edge, without crops
+lm_s_nlcd_nocrops<-lm(Insecticide~PercentCropland+MeanCropArea+NaturalCropEdge+factor(Year)+factor(ASDCode), data=data_surrogates)
+#NLCD variables + natural crop edge, with crops
+lm_s_nlcd_crops<-lm(Insecticide~PercentCropland+MeanCropArea+
+                  SoyGrains+Corn+FruitVeg+NaturalCropEdge+
+                  factor(Year)+factor(ASDCode), data=data_surrogates)
+
+#Create stargazer table
+stargazer::stargazer(lm_s_coa_nocrops, lm_s_coa_crops, lm_s_nlcd_nocrops, lm_s_nlcd_crops, type="text", omit=c("ASDCode","Year"),
+                     out="Data/Visualize/surrogates/surrogate_model_compare.txt",
+                     omit.stat=c("LL","ser","f"),
+                    column.labels=c("CoA", "CoA w/Crops", "NLCD", "NLCD w/Crops"), model.numbers=FALSE)
+
+#Get AIC and R2 values
+#lm_s_coa_nocrops
+lm_s_coa_nocrops_r2<-summary(lm_s_coa_nocrops)$r.squared
+lm_s_coa_nocrops_adjr2<-summary(lm_s_coa_nocrops)$adj.r.squared
+lm_s_coa_nocrops_AIC<-stats::AIC(lm_s_coa_nocrops)
+
+#lm_s_coa_crops
+lm_s_coa_crops_r2<-summary(lm_s_coa_crops)$r.squared
+lm_s_coa_crops_adjr2<-summary(lm_s_coa_crops)$adj.r.squared
+lm_s_coa_crops_AIC<-stats::AIC(lm_s_coa_crops)
+
+#lm_s_nlcd_nocrops
+lm_s_nlcd_nocrops_r2<-summary(lm_s_nlcd_nocrops)$r.squared
+lm_s_nlcd_nocrops_adjr2<-summary(lm_s_nlcd_nocrops)$adj.r.squared
+lm_s_nlcd_nocrops_AIC<-stats::AIC(lm_s_nlcd_nocrops)
+
+#lm_s_nlcd_crops
+lm_s_nlcd_crops_r2<-summary(lm_s_nlcd_crops)$r.squared
+lm_s_nlcd_crops_adjr2<-summary(lm_s_nlcd_crops)$adj.r.squared
+lm_s_nlcd_crops_AIC<-stats::AIC(lm_s_nlcd_crops)
+
+```
+
+
+#Try one more model real quick
+
+```{r}
+
+load("Data/DataProcessing/df/fulldata.rda")
+#For 4 years of data
+
+data_combine<-fulldata %>% 
+  select(FIPS, Year, ASDCode, ERSCode, 
+         insect_planted, pland_crops, natural_crops_ed, mna_crops, largefarm_planted,
+         soysmallgrain_planted, corn_planted, fruitveg_planted, msidi) %>% 
+  na.omit() %>% #11924 observations (same as data_natural)
+  mutate_at(scale, .vars=vars(-FIPS, -Year, -ERSCode, -ASDCode, -insect_planted)) %>%  #Scale by subtracting column mean and dividing by column SD
+    rename(Insecticide=insect_planted,
+         PercentCropland=pland_crops,
+         NaturalCropEdge=natural_crops_ed,
+         MeanCropArea=mna_crops,
+         LargeFarms=largefarm_planted,
+         SoyGrains=soysmallgrain_planted,
+         Corn=corn_planted,
+         FruitVeg=fruitveg_planted,
+         LandDiversity=msidi)
+
+#Testing combinations
+#4 years
+lm_combine_largefarm<-lm(Insecticide~PercentCropland+LargeFarms+NaturalCropEdge+
+                        SoyGrains+Corn+FruitVeg+
+                       LandDiversity+factor(Year)+factor(ASDCode), data=data_combine)
+lm_combine_meancroparea<-lm(Insecticide~PercentCropland+MeanCropArea+NaturalCropEdge+
+                        SoyGrains+Corn+FruitVeg+
+                       LandDiversity+factor(Year)+factor(ASDCode), data=data_combine)
+
+#lm_combine_largefarm
+lm_combine_largefarm_r2<-summary(lm_combine_largefarm)$r.squared
+lm_combine_largefarm_adjr2<-summary(lm_combine_largefarm)$adj.r.squared
+lm_combine_largefarm_AIC<-stats::AIC(lm_combine_largefarm)
+
+#lm_crops_3yrs
+lm_combine_meancroparea_r2<-summary(lm_combine_meancroparea)$r.squared
+lm_combine_meancroparea_adjr2<-summary(lm_combine_meancroparea)$adj.r.squared
+lm_combine_meancroparea_AIC<-stats::AIC(lm_combine_meancroparea)
+
+#Create stargazer table
+stargazer::stargazer(lm_combine_largefarm, lm_combine_meancroparea, type="text", omit=c("ASDCode","Year"),
+                     out="Data/Visualize/surrogates/combine_model_compare.txt",
+                     omit.stat=c("LL","ser","f"))
+
+```
+
+
+#Improve current best R2 model
+
+```{r}
+
+load("Data/DataProcessing/df/fulldata.rda")
+
+data_test<-fulldata %>% 
+  select(FIPS, Year, ASDCode, ERSCode, harv_county,
+         insect_planted, pland_crops, natural_crops_ed, mna_crops, largefarm_planted,
+         soysmallgrain_planted, corn_planted, fruitveg_planted, ed_crops,
+         msidi) %>% 
+  filter(harv_county>=0.01) %>% 
+  na.omit() %>% #11088 observations 
+  mutate_at(scale, .vars=vars(-FIPS, -Year, -ERSCode, -ASDCode, -insect_planted)) %>%  #Scale by subtracting column mean and dividing by column SD
+    rename(Insecticide=insect_planted,
+         PercentCrop=pland_crops,
+         NaturalCropEdge=natural_crops_ed,
+         MeanCropArea=mna_crops,
+         LargeFarms=largefarm_planted,
+         SoyGrains=soysmallgrain_planted,
+         Corn=corn_planted,
+         FruitVeg=fruitveg_planted,
+         LandDiversity=msidi)
+
+
+
+data_corr<-data_test %>% 
+  mutate(PercentCrop=residuals(lm(PercentCrop~factor(ASDCode)+factor(Year), data=data_test)),
+         NaturalCropEdge=residuals(lm(NaturalCropEdge~factor(ASDCode)+factor(Year), data=data_test)),
+         MeanCropArea=residuals(lm(MeanCropArea~factor(ASDCode)+factor(Year), data=data_test)),
+         LargeFarms=residuals(lm(LargeFarms~factor(ASDCode)+factor(Year), data=data_test)),
+         SoyGrains=residuals(lm(SoyGrains~factor(ASDCode)+factor(Year), data=data_test)),
+         Corn=residuals(lm(Corn~factor(ASDCode)+factor(Year), data=data_test)),
+         FruitVeg=residuals(lm(FruitVeg~factor(ASDCode)+factor(Year), data=data_test)),
+         LandDiversity=residuals(lm(LandDiversity~factor(ASDCode)+factor(Year), data=data_test)))%>% 
+  select(PercentCrop, NaturalCropEdge, MeanCropArea, LargeFarms, SoyGrains, Corn, FruitVeg, LandDiversity)
+
+#Using this site as basis:https://stackoverflow.com/questions/27431735/demeaning-data-on-multiple-levels-in-r
+
+# png(filename="Data/Visualize/VIF/residuals_corrplot.png",width=600, height=600)
+corrplot::corrplot(cor(data_corr), type = "upper", order = "hclust", 
+          tl.col = "black", tl.srt = 45,col=brewer.pal(n=8, name="RdYlBu"))
+# dev.off()
+
+lm_test<-lm(Insecticide~PercentCrop+NaturalCropEdge+LargeFarms+SoyGrains+Corn+FruitVeg+LandDiversity+
+                  factor(Year)+factor(ASDCode), data=data_test)
+car::vif(lm_test) #NaturalCropEdge decreases VIF correlation by a lot, even if ed_crops had barely higher AIC/R2
+summary(lm_test)$r.squared
+summary(lm_test)$adj.r.squared
+stats::AIC(lm_test)
+stats::nobs(lm_test)
+#Land Diversity not to crazy correlated
+#Create stargazer table
+stargazer::stargazer(lm_test, type="text", omit=c("ASDCode","Year"),
+                     out="Data/Visualize/surrogates/test.txt",
+                     omit.stat=c("LL","ser","f"))
+```
+
+Current model
+PercentCrop       10.738670   1        3.276991
+NaturalCropEdge    5.556705   1        2.357266
+LargeFarms         6.415514   1        2.532886
+SoyGrains          6.182497   1        2.486463
+Corn               8.122319   1        2.849968
+FruitVeg           3.126279   1        1.768129
+LandDiversity      3.878896   1        1.969491
+factor(Year)       1.072156   3        1.011680
+factor(ASDCode) 2297.640478 300        1.012983
+[1] 0.7417238
+[1] 0.7342945
+[1] -18659.18
+[1] 11088
+
+
+Current best model, variables above with 4 years and removing harv_county <1% (removing LandDiversity doesnt change much and improves correlation)
+Adding mean crop area only makes it slightly worse; removing makes model slightly worse but variables individually more significant
+
+Large Farms better than Mean Crop Area, but they are very comparable- slightly better VIF, AIC, R2, but very close values
+If don't have large farms, kind of need crop covariates, and vice versa- the model isn't as good when all CoA removed, but is possible and not too bad
+Honesty Land Diversity less important than LargeFarms
+
+
+
+Scores to beat:ed_crops instead of naturalcropedge with meancroparea nad large farms but no because correlation
+[1] 0.7418103
+[1] 0.7343589
+[1] -18660.89
+[1] 11088
+
+Large Farms and Crop Covariates and low correlation
+[1] 0.741647
+[1] 0.7342402
+[1] -18657.88
+[1] 11088
+
+original test version, or removal of mean crop area (slightly higher but similar); mean crop area not as good as large farms, but not bad (percent cropland better than harv_county by a bit)
+[1] 0.7417296
+[1] 0.7342758
+[1] -18657.43
+[1] 11088
+
+[1] 0.7417238
+[1] 0.7342945
+[1] -18659.18
+[1] 11088
+
+Not too shabby without crop covariates: and using no CoA except insecticides; but crop covariates majorly improve
+[1] 0.6697154
+[1] 0.6603094
+[1] -15938.36
+[1] 11088
+
+##Make table of different AIC and R2 values from different models
+However, there is one main difference between R2 and the adjusted R2: R2 assumes that every single variable explains the variation in the dependent variable. The adjusted R2 tells you the percentage of variation explained by only the independent variables that actually affect the dependent variable.
+
+```{r}
+
+#Load all models from models folder
+load("Data/Analysis/models/lm_nocrops_4yrs.Rda")
+load("Data/Analysis/models/lm_nocrops_3yrs.Rda")
+load("Data/Analysis/models/lm_crops_4yrs.Rda")
+load("Data/Analysis/models/lm_crops_3yrs.Rda")
+load("Data/Analysis/models/lm_diversity.Rda")
+load("Data/Analysis/models/lm_natural.Rda")
+load("Data/Analysis/models/lm_forest.Rda")
+load("Data/Analysis/models/lm_shrubgrass.Rda")
+load("Data/Analysis/models/lm_regional.Rda")
+
+#Make sure the following models are loaded from above: lm_pcrop_less1pc,lm_coa_cropless1pc,lm_harvcrop_comb, lm_pcrop, lm_prcop_cdl, lm_plandnatural
+#Also taking AIc and R2 values from surrogate models run above: lm_s_coa_nocrops,lm_s_coa_crops,lm_s_nlcd_nocrops,lm_s_nlcd_crops
+
+
+#Get R2 value and AIC from every model above (get both)
+#lm_nocrops_4yrs
+lm_nocrops_4yrs_r2<-summary(lm_nocrops_4yrs)$r.squared
+lm_nocrops_4yrs_adjr2<-summary(lm_nocrops_4yrs)$adj.r.squared
+lm_nocrops_4yrs_AIC<-stats::AIC(lm_nocrops_4yrs)
+
+#lm_nocrops_3yrs
+lm_nocrops_3yrs_r2<-summary(lm_nocrops_3yrs)$r.squared
+lm_nocrops_3yrs_adjr2<-summary(lm_nocrops_3yrs)$adj.r.squared
+lm_nocrops_3yrs_AIC<-stats::AIC(lm_nocrops_3yrs)
+
+#lm_crops_4yrs
+lm_crops_4yrs_r2<-summary(lm_crops_4yrs)$r.squared
+lm_crops_4yrs_adjr2<-summary(lm_crops_4yrs)$adj.r.squared
+lm_crops_4yrs_AIC<-stats::AIC(lm_crops_4yrs)
+
+#lm_crops_3yrs
+lm_crops_3yrs_r2<-summary(lm_crops_3yrs)$r.squared
+lm_crops_3yrs_adjr2<-summary(lm_crops_3yrs)$adj.r.squared
+lm_crops_3yrs_AIC<-stats::AIC(lm_crops_3yrs)
+
+#lm_diversity
+lm_diversity_r2<-summary(lm_diversity)$r.squared
+lm_diversity_adjr2<-summary(lm_diversity)$adj.r.squared
+lm_diversity_AIC<-stats::AIC(lm_diversity)
+
+#lm_natural
+lm_natural_r2<-summary(lm_natural)$r.squared
+lm_natural_adjr2<-summary(lm_natural)$adj.r.squared
+lm_natural_AIC<-stats::AIC(lm_natural)
+
+#lm_forest
+lm_forest_r2<-summary(lm_forest)$r.squared
+lm_forest_adjr2<-summary(lm_forest)$adj.r.squared
+lm_forest_AIC<-stats::AIC(lm_forest)
+
+#lm_shrubgrass
+lm_shrubgrass_r2<-summary(lm_shrubgrass)$r.squared
+lm_shrubgrass_adjr2<-summary(lm_shrubgrass)$adj.r.squared
+lm_shrubgrass_AIC<-stats::AIC(lm_shrubgrass)
+
+#lm_regional
+lm_regional_r2<-summary(lm_regional)$r.squared
+lm_regional_adjr2<-summary(lm_regional)$adj.r.squared
+lm_regional_AIC<-stats::AIC(lm_regional)
+
+#lm_pcrop_less1pc
+lm_pcrop_less1pc_r2<-summary(lm_pcrop_less1pc)$r.squared
+lm_pcrop_less1pc_adjr2<-summary(lm_pcrop_less1pc)$adj.r.squared
+lm_pcrop_less1pc_AIC<-stats::AIC(lm_pcrop_less1pc)
+
+#lm_coa_cropless1pc
+lm_coa_cropless1pc_r2<-summary(lm_coa_cropless1pc)$r.squared
+lm_coa_cropless1pc_adjr2<-summary(lm_coa_cropless1pc)$adj.r.squared
+lm_coa_cropless1pc_AIC<-stats::AIC(lm_coa_cropless1pc)
+
+#lm_harvcrop_comb
+lm_harvcrop_comb_r2<-summary(lm_harvcrop_comb)$r.squared
+lm_harvcrop_comb_adjr2<-summary(lm_harvcrop_comb)$adj.r.squared
+lm_harvcrop_comb_AIC<-stats::AIC(lm_harvcrop_comb)
+
+#lm_pcrop
+lm_pcrop_r2<-summary(lm_pcrop)$r.squared
+lm_pcrop_adjr2<-summary(lm_pcrop)$adj.r.squared
+lm_pcrop_AIC<-stats::AIC(lm_pcrop)
+
+#lm_prcop_cdl
+lm_pcrop_cdl_r2<-summary(lm_pcrop_cdl)$r.squared
+lm_pcrop_cdl_adjr2<-summary(lm_pcrop_cdl)$adj.r.squared
+lm_pcrop_cdl_AIC<-stats::AIC(lm_pcrop_cdl)
+
+#lm_plandnatural
+lm_plandnatural_r2<-summary(lm_plandnatural)$r.squared
+lm_plandnatural_adjr2<-summary(lm_plandnatural)$adj.r.squared
+lm_plandnatural_AIC<-stats::AIC(lm_plandnatural)
+
+#Deciding to extract #observations from each so AIC more comparable
+lm_nocrops_4yrs_nobs<-nobs(lm_nocrops_4yrs)
+lm_nocrops_3yrs_nobs<-nobs(lm_nocrops_3yrs)
+lm_crops_4yrs_nobs<-nobs(lm_crops_4yrs)
+lm_crops_3yrs_nobs<-nobs(lm_crops_3yrs)
+lm_diversity_nobs<-nobs(lm_diversity)
+lm_natural_nobs<-nobs(lm_natural)
+lm_forest_nobs<-nobs(lm_forest)
+lm_shrubgrass_nobs<-nobs(lm_shrubgrass)
+lm_regional_nobs<-nobs(lm_regional)
+lm_pcrop_less1pc_nobs<-nobs(lm_pcrop_less1pc)
+lm_coa_cropless1pc_nobs<-nobs(lm_coa_cropless1pc)
+lm_harvcrop_comb_nobs<-nobs(lm_harvcrop_comb)
+lm_pcrop_nobs<-nobs(lm_pcrop)
+lm_pcrop_cdl_nobs<-nobs(lm_pcrop_cdl)
+lm_plandnatural_nobs<-nobs(lm_plandnatural)
+lm_s_coa_nocrops_nobs<-nobs(lm_s_coa_nocrops)
+lm_s_coa_crops_nobs<-nobs(lm_s_coa_crops)
+lm_s_nlcd_nocrops_nobs<-nobs(lm_s_nlcd_nocrops)
+lm_s_nlcd_crops_nobs<-nobs(lm_s_nlcd_crops)
+lm_combine_largefarm_nobs<-nobs(lm_combine_largefarm)
+lm_combine_meancroparea_nobs<-nobs(lm_combine_meancroparea)
+
+
+
+#Model Names
+modelnames<-c("lm_nocrops_4yrs","lm_nocrops_3yrs","lm_crops_4yrs","lm_crops_3yrs","lm_diversity","lm_natural","lm_forest","lm_shrubgrass","lm_regional", "lm_pcrop_less1pc","lm_coa_cropless1pc","lm_harvcrop_comb", "lm_pcrop", "lm_pcrop_cdl", "lm_plandnatural","lm_s_coa_nocrops","lm_s_coa_crops","lm_s_nlcd_nocrops","lm_s_nlcd_crops", "lm_combine_largefarm", "lm_combine_meancroparea")
+
+#Combine values into table
+model_stats<-data.frame(modelnames)
+
+#R2
+model_stats$r2<-c(lm_nocrops_4yrs_r2,lm_nocrops_3yrs_r2,lm_crops_4yrs_r2,lm_crops_3yrs_r2,lm_diversity_r2,lm_natural_r2,lm_forest_r2,lm_shrubgrass_r2,lm_regional_r2, lm_pcrop_less1pc_r2,lm_coa_cropless1pc_r2,lm_harvcrop_comb_r2, lm_pcrop_r2, lm_pcrop_cdl_r2, lm_plandnatural_r2,lm_s_coa_nocrops_r2,lm_s_coa_crops_r2,lm_s_nlcd_nocrops_r2,lm_s_nlcd_crops_r2,lm_combine_largefarm_r2, lm_combine_meancroparea_r2)
+
+#Adjusted R2
+model_stats$adjr2<-c(lm_nocrops_4yrs_adjr2,lm_nocrops_3yrs_adjr2,lm_crops_4yrs_adjr2,lm_crops_3yrs_adjr2,lm_diversity_adjr2,lm_natural_adjr2,lm_forest_adjr2,lm_shrubgrass_adjr2,lm_regional_adjr2, lm_pcrop_less1pc_adjr2,lm_coa_cropless1pc_adjr2,lm_harvcrop_comb_adjr2, lm_pcrop_adjr2, lm_pcrop_cdl_adjr2, lm_plandnatural_adjr2,lm_s_coa_nocrops_adjr2,lm_s_coa_crops_adjr2,lm_s_nlcd_nocrops_adjr2,lm_s_nlcd_crops_adjr2,lm_combine_largefarm_adjr2, lm_combine_meancroparea_adjr2)
+
+#AIC
+model_stats$AIC<-c(lm_nocrops_4yrs_AIC,lm_nocrops_3yrs_AIC,lm_crops_4yrs_AIC,lm_crops_3yrs_AIC,lm_diversity_AIC,lm_natural_AIC,lm_forest_AIC,lm_shrubgrass_AIC,lm_regional_AIC, lm_pcrop_less1pc_AIC,lm_coa_cropless1pc_AIC,lm_harvcrop_comb_AIC, lm_pcrop_AIC, lm_pcrop_cdl_AIC, lm_plandnatural_AIC,lm_s_coa_nocrops_AIC,lm_s_coa_crops_AIC,lm_s_nlcd_nocrops_AIC,lm_s_nlcd_crops_AIC,lm_combine_largefarm_AIC, lm_combine_meancroparea_AIC)
+
+#Number of Observations
+model_stats$nobs<-c(lm_nocrops_4yrs_nobs,lm_nocrops_3yrs_nobs,lm_crops_4yrs_nobs,lm_crops_3yrs_nobs,lm_diversity_nobs,lm_natural_nobs,lm_forest_nobs,lm_shrubgrass_nobs,lm_regional_nobs, lm_pcrop_less1pc_nobs,lm_coa_cropless1pc_nobs,lm_harvcrop_comb_nobs, lm_pcrop_nobs, lm_pcrop_cdl_nobs, lm_plandnatural_nobs,lm_s_coa_nocrops_nobs,lm_s_coa_crops_nobs,lm_s_nlcd_nocrops_nobs,lm_s_nlcd_crops_nobs,lm_combine_largefarm_nobs, lm_combine_meancroparea_nobs)
+
+nr<-nrow(model_stats)
+msdf<-model_stats %>% 
+  arrange(AIC) %>% 
+  mutate(AICorder=1:nr) %>% 
+  arrange(-r2) %>% 
+  mutate(r2order=1:nr) %>% 
+  arrange(-adjr2) %>% 
+  mutate(adjr2order=1:nr) %>% 
+  arrange(-nobs)
+
+
+
+```
+
+"https://stats.stackexchange.com/questions/140965/when-aic-and-adjusted-r2-lead-to-different-conclusions/342734"
+R2  and AIC are answering two different questions. I want to keep this breezy and non-mathematical, so my statements are non-mathematical. R2 is saying something to the effect of how well your model explains the observed data. If the model is regression and non-adjusted R^2 is used, then this is correct on the nose.
+AIC, on the other hand, is trying to explain how well the model will predict on new data. That is, AIC is a measure of how well the model will fit new data, not the existing data. Lower AIC means that a model should have improved prediction.
+Frequently adding more variables decreases predictive accuracy and in that case the model with higher R2 will have a higher (worse) AIC. A nice example of this is in "Introduction to Statistical Learning with R" in the chapter on regression models including 'best subset' and regularization. They do a pretty thorough analysis of the 'hitters' data set. One can also do a thought experiment. Imagine one is trying to predict output on the basis of some known variables. Adding noise variables to the fit will increase R^2, but it will also decrease predictive power of the model. Thus the model with noise variables will have higher R2 and higher AIC.
+
 

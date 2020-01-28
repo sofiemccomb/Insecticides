@@ -1,0 +1,382 @@
+---
+title: "Present_>1%crop"
+author: "Sofie McComb"
+date: "January 7, 2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+This R Markdown document will perform the panel linear model regressions for determining the relationship of agricultural and landscape variables on insectide use in the present-day.
+
+Twoways (individual and time) fixed effects models will be run for each regression. Individual will be represented by ASDCode and time will be represented by year.
+
+ 
+## Data Preparation
+
+This section will load the necessary packages and data
+
+#### Load Packages
+
+```{r packages, message=F, warning=F}
+
+#Load the needed packages (install first if necessary)
+library(tidyverse) #Datatable manipulation
+library(purrr) #For reduce function using full_join
+library(car) # For calculating variance inflation factors (vif)
+library(broom) #Convert statistical analysis into df
+library(reshape2)#For wide to long data format
+library(clubSandwich) #for coeftest (cluster robust standard errors)
+
+#Set options
+options(scipen=999) #no scientific notation (all)
+
+```
+
+
+#### Load Data
+
+Loading the fulldata dataset created in the DataProcessing.Rmd, which was developed to perform the regression analyses,
+as well as fulldata_forecast for the forecasted versions of the 4 NLCD
+
+```{r data, message=F, warning=F}
+
+load("Data/DataProcessing/df/fulldata.rda")
+load("Data/DataProcessing/Future/df/fulldata_forecast.rda")
+
+```
+
+
+## Panel Regression Analyses
+
+###Model 1 
+Census of Ag (Harv crop, large farms, crop covariates) for 4 years,  observations >1%cropland-all observations applies to all models
+
+```{r}
+
+data_model_1<-fulldata %>% 
+  select(FIPS, Year, ASDCode, ERSCode,
+         insect_planted, harv_county, largefarm_planted, 
+         soysmallgrain_planted, corn_planted, fruitveg_planted,msidi,
+         pland_crops, Prop_LCP) %>% #Included msidi, etc. so that 4 yrs of observations and same data rows as model 2
+  na.omit() %>% #11816 observations %>% 
+  filter(harv_county>=0.01) %>% #11035 observations
+    select(FIPS, Year, ASDCode, ERSCode,
+         insect_planted, harv_county, largefarm_planted, 
+         soysmallgrain_planted, corn_planted, fruitveg_planted) %>% #remove msidi so scaled correctly
+  mutate_at(scale, .vars=vars(-FIPS, -Year, -ERSCode, -ASDCode, -insect_planted)) %>%  #Scale by subtracting column mean and dividing by column SD
+    rename(Insecticide=insect_planted,
+         HarvestedCrop=harv_county,
+         LargeFarms=largefarm_planted,
+         SoyGrains=soysmallgrain_planted,
+         Corn=corn_planted,
+         FruitVeg=fruitveg_planted)
+
+lm_model_1<-lm(Insecticide~HarvestedCrop+LargeFarms+
+                  SoyGrains+Corn+FruitVeg+
+                  factor(Year)+factor(ASDCode), data=data_model_1)
+df_coef_model_1<-lm_model_1 %>% 
+  clubSandwich::coef_test(vcov = "CR2", cluster = data_model_1$ASDCode, test = "Satterthwaite")
+
+
+```
+
+
+###Model 2
+Census of Ag (Harv crop, large farms, crop covariates) with naturalcropedge and land diversity for 4 years
+
+```{r}
+
+data_model_2<-fulldata %>% 
+  select(FIPS, Year, ASDCode, ERSCode,
+         insect_planted, harv_county, largefarm_planted, 
+         soysmallgrain_planted, corn_planted, fruitveg_planted,
+         natural_crops_ed, msidi,
+         pland_crops, Prop_LCP) %>% 
+  na.omit() %>% #11816 observations
+    filter(harv_county>=0.01) %>% #11035 observations
+    select(FIPS, Year, ASDCode, ERSCode,
+         insect_planted, harv_county, largefarm_planted, 
+         soysmallgrain_planted, corn_planted, fruitveg_planted,
+         natural_crops_ed, msidi) %>% #Need to scale for only the variables selecting
+  mutate_at(scale, .vars=vars(-FIPS, -Year, -ERSCode, -ASDCode, -insect_planted)) %>%  #Scale by subtracting column mean and dividing by column SD
+    rename(Insecticide=insect_planted,
+         HarvestedCrop=harv_county,
+         LargeFarms=largefarm_planted,
+         SoyGrains=soysmallgrain_planted,
+         Corn=corn_planted,
+         FruitVeg=fruitveg_planted,
+         NaturalCropEdge=natural_crops_ed,
+         LandDiversity=msidi)
+
+lm_model_2<-lm(Insecticide~HarvestedCrop+LargeFarms+
+                 SoyGrains+Corn+FruitVeg+
+                 NaturalCropEdge+LandDiversity+
+                 factor(Year)+factor(ASDCode), data=data_model_2)
+df_coef_model_2<-lm_model_2 %>% 
+  clubSandwich::coef_test(vcov = "CR2", cluster = data_model_2$ASDCode, test = "Satterthwaite")
+
+```
+
+
+###Model 3
+Census of Ag (Harv crop, large farms, crop covariates) with natural cropedge and land diversity and crop diversity for only 3 years (no 2002)-only one with crop diversity
+
+```{r}
+
+data_model_3<-fulldata %>% 
+  select(FIPS, Year, ASDCode, ERSCode,
+         insect_planted, harv_county, largefarm_planted, 
+         soysmallgrain_planted, corn_planted, fruitveg_planted,
+         natural_crops_ed, msidi, SDI,pland_crops, Prop_LCP) %>% 
+  na.omit() %>% #8860 observations
+    filter(harv_county>=0.01) %>% #8279 observations
+    select(FIPS, Year, ASDCode, ERSCode,
+         insect_planted, harv_county, largefarm_planted, 
+         soysmallgrain_planted, corn_planted, fruitveg_planted,
+         natural_crops_ed, msidi, SDI) %>% 
+  mutate_at(scale, .vars=vars(-FIPS, -Year, -ERSCode, -ASDCode, -insect_planted)) %>%  #Scale by subtracting column mean and dividing by column SD
+    rename(Insecticide=insect_planted,
+         HarvestedCrop=harv_county,
+         LargeFarms=largefarm_planted,
+         SoyGrains=soysmallgrain_planted,
+         Corn=corn_planted,
+         FruitVeg=fruitveg_planted,
+         NaturalCropEdge=natural_crops_ed,
+         LandDiversity=msidi,
+         CropDiversity=SDI)
+
+lm_model_3<-lm(Insecticide~HarvestedCrop+LargeFarms+
+                 SoyGrains+Corn+FruitVeg+
+                 NaturalCropEdge+LandDiversity+ CropDiversity+
+                 factor(Year)+factor(ASDCode), data=data_model_3)
+df_coef_model_3<-lm_model_3 %>% 
+  clubSandwich::coef_test(vcov = "CR2", cluster = data_model_3$ASDCode, test = "Satterthwaite")
+
+
+
+```
+
+
+###Model 4
+NLCD equivalents (Percent cropland, LCP patch metric) with naturalcropedge and land diversity and crop covariates for 4 years (no large farms)
+
+```{r}
+
+data_model_4<-fulldata %>% 
+  select(FIPS, Year, ASDCode, ERSCode,
+         insect_planted, pland_crops, Prop_LCP, 
+         soysmallgrain_planted, corn_planted, fruitveg_planted,
+         natural_crops_ed, msidi, harv_county, largefarm_planted) %>% #Include harv_county and largefarm so exact same rows
+  na.omit() %>% #11816 observations
+    filter(pland_crops>=1) %>% #8752 observations
+   select(FIPS, Year, ASDCode, ERSCode,
+         insect_planted, pland_crops, Prop_LCP, 
+         soysmallgrain_planted, corn_planted, fruitveg_planted,
+         natural_crops_ed, msidi) %>% #Remove harv_county and largefarm_planted so scaled correctly
+  mutate_at(scale, .vars=vars(-FIPS, -Year, -ERSCode, -ASDCode, -insect_planted)) %>%  #Scale by subtracting column mean and dividing by column SD
+    rename(Insecticide=insect_planted,
+         PercentCrop=pland_crops,
+         LargeCropPatches=Prop_LCP,
+         SoyGrains=soysmallgrain_planted,
+         Corn=corn_planted,
+         FruitVeg=fruitveg_planted,
+         NaturalCropEdge=natural_crops_ed,
+         LandDiversity=msidi)
+
+lm_model_4<-lm(Insecticide~PercentCrop+LargeCropPatches+
+                 SoyGrains+Corn+FruitVeg+
+                 NaturalCropEdge+LandDiversity+
+                 factor(Year)+factor(ASDCode), data=data_model_4)
+df_coef_model_4<-lm_model_4 %>% 
+  clubSandwich::coef_test(vcov = "CR2", cluster = data_model_4$ASDCode, test = "Satterthwaite")
+
+```
+
+
+###Model 5
+Model 4 but without crop covariates
+
+```{r}
+
+data_model_5<-fulldata %>% 
+  select(FIPS, Year, ASDCode, ERSCode,
+         insect_planted, pland_crops, Prop_LCP, 
+         soysmallgrain_planted, corn_planted, fruitveg_planted,
+         natural_crops_ed, msidi, harv_county, largefarm_planted) %>% #Include harv_county and largefarm and crops so exact same rows
+  na.omit() %>% #11816 observations
+      filter(pland_crops>=1) %>% #8752 observations
+   select(FIPS, Year, ASDCode, ERSCode,
+         insect_planted, pland_crops, Prop_LCP,
+         natural_crops_ed, msidi) %>% #Remove harv_county and largefarm_planted and crops so scaled correctly
+  mutate_at(scale, .vars=vars(-FIPS, -Year, -ERSCode, -ASDCode, -insect_planted)) %>%  #Scale by subtracting column mean and dividing by column SD
+    rename(Insecticide=insect_planted,
+         PercentCrop=pland_crops,
+         LargeCropPatches=Prop_LCP,
+         NaturalCropEdge=natural_crops_ed,
+         LandDiversity=msidi)
+
+lm_model_5<-lm(Insecticide~PercentCrop+LargeCropPatches+
+                 NaturalCropEdge+LandDiversity+
+                 factor(Year)+factor(ASDCode), data=data_model_5)
+df_coef_model_5<-lm_model_5 %>% 
+  clubSandwich::coef_test(vcov = "CR2", cluster = data_model_5$ASDCode, test = "Satterthwaite")
+
+```
+
+
+###Model 6
+Modeled NLCD (forecast for 4 years for pcrop, patch metric, naturalcropedge, and diversity) with crop covariates
+
+
+```{r}
+
+
+data_model_6<-fulldata_forecast %>% 
+  select(FIPS, Year, ASDCode, ERSCode,
+         insect_planted, pland_crops, Prop_LCP, 
+         soysmallgrain_planted, corn_planted, fruitveg_planted,
+         natural_crops_ed, msidi, harv_county, largefarm_planted) %>% #Include harv_county and largefarm so exact same rows
+  na.omit() %>% #11863 observations
+      filter(pland_crops>=1) %>% #10483 observations
+   select(FIPS, Year, ASDCode, ERSCode,
+         insect_planted, pland_crops, Prop_LCP, 
+         soysmallgrain_planted, corn_planted, fruitveg_planted,
+         natural_crops_ed, msidi) %>% #Remove harv_county and largefarm_planted so scaled correctly
+  mutate_at(scale, .vars=vars(-FIPS, -Year, -ERSCode, -ASDCode, -insect_planted)) %>%  #Scale by subtracting column mean and dividing by column SD
+    rename(Insecticide=insect_planted,
+         PercentCrop=pland_crops,
+         LargeCropPatches=Prop_LCP,
+         SoyGrains=soysmallgrain_planted,
+         Corn=corn_planted,
+         FruitVeg=fruitveg_planted,
+         NaturalCropEdge=natural_crops_ed,
+         LandDiversity=msidi)
+
+lm_model_6<-lm(Insecticide~PercentCrop+LargeCropPatches+
+                 SoyGrains+Corn+FruitVeg+
+                 NaturalCropEdge+LandDiversity+
+                 factor(Year)+factor(ASDCode), data=data_model_6)
+df_coef_model_6<-lm_model_6 %>% 
+  clubSandwich::coef_test(vcov = "CR2", cluster = data_model_6$ASDCode, test = "Satterthwaite")
+
+
+```
+
+
+###Model 7
+Model 6 but without crop covariates
+
+```{r}
+
+
+data_model_7<-fulldata_forecast %>% 
+  select(FIPS, Year, ASDCode, ERSCode,
+         insect_planted, pland_crops, Prop_LCP, 
+         soysmallgrain_planted, corn_planted, fruitveg_planted,
+         natural_crops_ed, msidi, harv_county, largefarm_planted) %>% #Include harv_county and largefarm and crops so exact same rows
+  na.omit() %>% #11863 observations
+      filter(pland_crops>=1) %>% #10483 observations
+   select(FIPS, Year, ASDCode, ERSCode,
+         insect_planted, pland_crops, Prop_LCP, 
+         natural_crops_ed, msidi) %>% #Remove harv_county and largefarm_planted and crops so scaled correctly
+  mutate_at(scale, .vars=vars(-FIPS, -Year, -ERSCode, -ASDCode, -insect_planted)) %>%  #Scale by subtracting column mean and dividing by column SD
+    rename(Insecticide=insect_planted,
+         PercentCrop=pland_crops,
+         LargeCropPatches=Prop_LCP,
+         NaturalCropEdge=natural_crops_ed,
+         LandDiversity=msidi)
+
+lm_model_7<-lm(Insecticide~PercentCrop+LargeCropPatches+
+                 NaturalCropEdge+LandDiversity+
+                 factor(Year)+factor(ASDCode), data=data_model_7)
+df_coef_model_7<-lm_model_7 %>% 
+  clubSandwich::coef_test(vcov = "CR2", cluster = data_model_7$ASDCode, test = "Satterthwaite")
+
+
+```
+
+
+
+###Table 1
+Stargazer Table of 7 Models
+
+```{r}
+
+
+stargazer::stargazer(lm_model_1, lm_model_2, lm_model_3, lm_model_4,lm_model_5,lm_model_6,lm_model_7,
+                     type="text", omit=c("ASDCode","Year"),
+                     out="Data/Present/stargazer/7Models_stargazer_morethan1percrop.txt",
+                     omit.stat=c("LL","ser","f"),
+                     se = list(df_coef_model_1[,2],df_coef_model_2[,2],df_coef_model_3[,2],df_coef_model_4[,2],df_coef_model_5[,2],
+                               df_coef_model_6[,2],df_coef_model_7[,2]),
+                     p=list(df_coef_model_1[,5],df_coef_model_2[,5],df_coef_model_3[,5],df_coef_model_4[,5],df_coef_model_5[,5],
+                            df_coef_model_6[,5],df_coef_model_7[,5]))
+
+
+```
+
+
+### Table 2
+Statistics: #Obs, Adjusted R2, AIC, BIC
+
+```{r}
+
+calc_model_stats<-function(modelname){
+  modelnm<-modelname
+  statsdf<-as.data.frame(cbind(nobs(modelnm),
+                 summary(modelnm)$adj.r.squared,
+                 stats::AIC(modelnm),
+                 stats::BIC(modelnm)))
+  return(statsdf)
+}
+
+#Calc stats for each model
+stats_model_1<-calc_model_stats(lm_model_1)
+stats_model_2<-calc_model_stats(lm_model_2)
+stats_model_3<-calc_model_stats(lm_model_3)
+stats_model_4<-calc_model_stats(lm_model_4)
+stats_model_5<-calc_model_stats(lm_model_5)
+stats_model_6<-calc_model_stats(lm_model_6)
+stats_model_7<-calc_model_stats(lm_model_7)
+
+#Rbind together
+stats_model<-rbind(stats_model_1, stats_model_2, stats_model_3, stats_model_4, stats_model_5,
+                   stats_model_6,stats_model_7) %>% 
+  mutate(Model=1:7) %>% 
+  select(Model, everything())
+colnames(stats_model)<-c("Model", "Observations", "Adjusted R2", "AIC", "BIC")
+stats_model
+
+```
+
+
+
+###VIF Tables
+
+```{r}
+
+calc_vif<-function(modelname){
+  modelnm<-modelname
+  vif_df<-rownames_to_column(as.data.frame(car::vif(modelnm))) %>% 
+    select(1, 4)
+  colnames(vif_df)<-c("Variable", "VIF")
+  return(vif_df)
+}
+
+vif_model_1<-calc_vif(lm_model_1) %>% rename(Model1=VIF)
+vif_model_2<-calc_vif(lm_model_2) %>% rename(Model2=VIF)
+vif_model_3<-calc_vif(lm_model_3) %>% rename(Model3=VIF)
+vif_model_4<-calc_vif(lm_model_4) %>% rename(Model4=VIF)
+vif_model_5<-calc_vif(lm_model_5) %>% rename(Model5=VIF)
+vif_model_6<-calc_vif(lm_model_6) %>% rename(Model6=VIF)
+vif_model_7<-calc_vif(lm_model_7) %>% rename(Model7=VIF)
+
+vif_model<-list(vif_model_1, vif_model_2, vif_model_3, vif_model_4,vif_model_5,vif_model_6,vif_model_7) %>% 
+  reduce(full_join, by="Variable")
+vif_model
+
+
+```

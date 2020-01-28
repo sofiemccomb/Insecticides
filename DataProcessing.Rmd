@@ -21,8 +21,10 @@ The data to gather includes:
     * Crop diversity
 3. NLCD
     * Patch/diversity metrics: Edge density, edge length, mean patch area, percentage of landscape, landscape diversity
+    * Large Crop Patches, calculated from NLCD to represent large farm
 4. ERS Regions  
 5. ASD Regions  
+6. Daily Climate Data
 
 More detail for each dataset will be given below as the data for each dataset is gathered and processed. All final data processed from each source is available under the Data/DataProcessing/df folder as a csv. The dataframe of all combined sources is saved as fulldata, in both csv and rda format (to be loaded into future Analysis.Rmd). Metadata for each individual source final data as well as for fulldata is available in the df folder as separate txt files.
 
@@ -48,19 +50,39 @@ More detail for each dataset will be given below as the data for each dataset is
 
 ### 1) Census of Agriculture (CoA)
 
+For 1997-2017:
 Census of Agriculture (CoA) datasets were used to define the agricultural properties of each county for use in regression, such as the amount of insectidies used and the area of harvested cropland per county.  
 
 CoA csvs were downloaded individually by agricultural property from the USDA National Agricultural Statistics Service (NASS) Quickstats: https://quickstats.nass.usda.gov/. The downloaded csvs are found in the Data/DataProcessing/CoA folder. An excel sheet of Metadata is provided in the folder, showing snipped images for how each dataset was selected and downloaded on the website. All csvs were labeled as the property being downloaded. Columns are defined by USDA NASS online.
 
 The datasets were combined into one dataframe, and further calculations and clean-up work was performed in order to get the data ready for regressions. 
+For 1987 & 1992:
+Data given by Ashley Larsen (originally retrieved same location as present CoA except on CD, but not on data viewer online and no longer CDs )
 
-More information as well as the data wrangling and caluclations can be found in the R/DataProcessing/COA.R script.
+Ensured the downloaded data is the exact same as the current CoA data, and then formatted it in the exact same manner as the present so can have a large CoA dataset from 1987-1992.
+
+More information as well as the data wrangling and caluclations can be found in the R/DataProcessing/COA.R script and COA_8792.R script.
 
 ```{r COA, message=F, warning=F}
 
 #Prepare Census of Agriculture data (COA) needed for the regression analyses
 source ("R/DataProcessing/COA.R")
-#Output saved as Data/DataProcessing/df/coa.csv
+source ("R/DataProcessing/COA_8792.R")
+#Output saved as Data/DataProcessing/df/coa.csv and Data/DataProcessing/df/coa_8792.csv
+
+#Also combine and save version of COA 1997-2017 and 1987-1992
+  #Read in 
+  coa_9717<-readr::read_csv("Data/DataProcessing/df/coa.csv") %>% 
+    select(-income, -fertilizer, -irrigate, -totalplanted_hectares, 
+           -income_inflated, -irrigate_planted, -income_planted) #remove columns that are different
+  coa_8792<-readr::read_csv("Data/DataProcessing/df/coa_8792.csv")
+  
+  #Combine dfs
+  coa_allyears<-rbind(coa_8792, coa_9717) %>%
+    arrange(FIPS, Year)
+  
+  #Write final all years CoA csv
+   write_csv(coa_allyears, "Data/DataProcessing/df/coa_allyears.csv")
 
 ```
 
@@ -114,6 +136,13 @@ source ("R/DataProcessing/NLCD.R")
 
 ```
 
+Read in Large Crop Patches csv:
+
+```{r}
+
+LCP<-read_csv("Data/DataProcessing/df/LargeCropPatch.csv")
+
+```
 
 
 ### 4) ERS
@@ -151,9 +180,30 @@ colnames(ASD)<-c("FIPS", "ASDCode")
 ```
 
 
+### 6) Climate
+
+Daily climate data from Olivier.
+
+
+Variables to examine: Mean Monthly Temperature (January, April, July, October), Precipitation (Annual, Growing Season),
+  Frost Days (annual days with tmin<=32 F), GDD (annual DD based on 50 and 90 F)
+
+
+```{r}
+
+source ("R/DataProcessing/Climate.R")
+#Output saved as Data/DataProcessing/df/climate.csv
+
+```
+
+
+
+#########################################
 ## Data Combination
 
 Combine the COA, CDL, NLCD, and ERS data to create final dataframe (fulldata) to be saved and used in regression analyses (Analysis.Rmd). Data and metadata for the fulldata dataframe can be found in the Data/DataProcessing/df folder.
+
+Re-reading in LCP, ERS, and ASD from above if starting from here, instead of running entire Rmd.
 
 
 ```{r combine, message=F, warning=F}
@@ -162,9 +212,19 @@ Combine the COA, CDL, NLCD, and ERS data to create final dataframe (fulldata) to
 coa<-readr::read_csv("Data/DataProcessing/df/coa.csv")
 cdl<-readr::read_csv("Data/DataProcessing/df/cdl.csv")
 nlcd<-readr::read_csv("Data/DataProcessing/df/nlcd.csv")
+LCP<-read_csv("Data/DataProcessing/df/LargeCropPatch.csv") %>% 
+  mutate(FIPS=as.numeric(FIPS))
+ERS<-readxl::read_xls("Data/DataProcessing/ERS/ERSRegions_To_Counties.xls") %>% 
+  select(1:3)
+  colnames(ERS)<-c("FIPS", "ERSCode", "ERSName")
+ASD<-readr::read_csv("Data/DataProcessing/ASD/ASD_County_Crosswalk.csv") %>% 
+  select(statecountyfips, StateASD)
+  colnames(ASD)<-c("FIPS", "ASDCode")
+climate<-readr::read_csv("Data/DataProcessing/df/climate.csv") %>% 
+  dplyr::rename(FIPS=fips, Year=year)
 
-#List and merge three datasets by the unique combination of FIPS and Year Values
-fulldata<-list(coa, cdl, nlcd) %>% 
+#List and merge first four datasets by the unique combination of FIPS and Year Values
+fulldata<-list(coa, cdl, nlcd, LCP, climate) %>% 
   reduce(full_join, by=c("FIPS", "Year"))
 
 #Merge with ERS and ASD by just FIPS
@@ -172,54 +232,224 @@ fulldata<-list(fulldata, ERS, ASD) %>%
   reduce(full_join, by=c("FIPS"))
 
 
-#Drop the 9 VA counties 51515, 51530, 51580, 51595, 51600, 51610, 51678,51685, 51720 
-  #that had NA in CDL and that are essentially within other counties
+#Drop counties with changed official county borders, etc. issues (same as Larsen 2015 paper)
 fulldata<-fulldata %>%
-  filter(!(FIPS==51515)&!(FIPS==51530)&!(FIPS==51580)&!(FIPS==51595)&!(FIPS==51600)&
-           !(FIPS==51610)&!(FIPS==51678)&!(FIPS==51685)&!(FIPS==51720))
+  filter(!(FIPS>=51200 & FIPS<=52000)) %>% #VA counties
+  filter(!(FIPS>=2000 & FIPS<3000)) %>% #AK
+  filter(!(FIPS>=15000 & FIPS<16000)) %>% #HI
+  filter(!(FIPS==08001)&!(FIPS==08013)&!(FIPS==08059)&!(FIPS==08014)&!(FIPS==08123)&
+           !(FIPS==30113)&!(FIPS==30031)&!(FIPS==30067)&!(FIPS==08031)&
+           !(FIPS==24031)&!(FIPS==24033)&!(FIPS==37031)&!(FIPS==37049)&
+           !(FIPS==12045)&!(FIPS==12037)&!(FIPS==11001)&!(FIPS==24510)&
+           !(FIPS==29510)&!(FIPS==24510)&!(FIPS==12025)&!(FIPS==12086)) #Counties with changing borders
 
-#Explore the COA data missing
-  #Going to currently leave in the other counties that are suffering similar issues (no CoA data) as they will be dropped with the regression 
-  #Most are FIPS for areas that made part of a county become an independent city (almost all in VA)
-  #Good explanation here: http://www.nber.org/asg/ASG_release/County_City/FIPS/FIPS_Changes.pdf
-  #Those counties are: 
-    #11001, 24510, 29510, 46113, 51510, 51520, 51540, 51570, 51590, 51620, 51630, 51640, 51650, 51660, 51670, 51680, 51683, 51690, 51700, 51710, 51730, 51735, 51740, 51750, 51760, 51770, 51775, 51790, 51820, 51830, 51840, 8014, 51560, 51780, 12025, 30113
 
-#Add in column calculating Crop Intensity needed for regression
-  #Crop intensity equals Harvested Crop Acreage/Crop Land Acreage,
-    #where crop land acreage is defined by percentage cropland (pland_crops) multiped by county area (countyarea)
-    #Both acreages (harvcrop and countyarea) are from CoA and pland_crops is from the NLCD
-
-#Add in column for natural-crops edge density
+#Add in columns for natural-crops edge density
   #Have shared edge length between natural land and crops divided by county area (ag)
+fulldata<-fulldata %>% #Changed edge metrics to use CountyArea instead (similar output but slighlty more accurate)
+    dplyr::mutate(natural_crops_ed=tel_naturalcrops_nc/CountyArea_ha) %>% #meters shared edge per hectare county area
+    dplyr::mutate(forest_crops_ed=tel_forestcrop_fc/CountyArea_ha) %>% 
+    dplyr::mutate(shrubgrass_crops_ed=tel_shrubgrasscrop_sgc/CountyArea_ha)
 
-#Use 2017 county area to fill all other year county area so standardized per FIPS
-  fulldata<-fulldata %>% 
-    dplyr::group_by(FIPS) %>% 
-    arrange(desc(Year)) %>% 
-    dplyr::mutate(countyarea=countyarea[1]) %>% 
-    arrange(FIPS) %>% 
-    dplyr::ungroup()
-
-fulldata<-fulldata %>% 
-  dplyr::mutate(cropintensity=harvcrop/((pland_crops/100)*countyarea)) %>% 
-  dplyr::mutate(natural_crops_ed=tel_naturalcrops_nc/(countyarea*0.4046856422)) %>% #meters shared edge per hectare county area
-  dplyr::mutate(forest_crops_ed=tel_forestcrop_fc/(countyarea*0.4046856422)) %>% 
-  dplyr::mutate(shrubgrass_crops_ed=tel_shrubgrasscrop_sgc/(countyarea*0.4046856422))
-
-#Replace infinite values with NA for regression 
-  fulldata$cropintensity[sapply(fulldata$cropintensity, is.infinite)]<-NA
-  fulldata$natural_crops_ed[sapply(fulldata$natural_crops_ed, is.infinite)]<-NA
-  
-#If harvcrop or pland_crops is 0 then make cropintensity 0 
-  fulldata$cropintensity<- ifelse(fulldata$harvcrop==0, 0, fulldata$cropintensity)
-  fulldata$cropintensity<- ifelse(fulldata$pland_crops==0, 0, fulldata$cropintensity)
-  
 #Remove rows with NA value for year
   fulldata<-fulldata[!is.na(fulldata$Year),]
     
-#Write fulldata to df folder as all data pulled together
+#Write fulldata to df folder as all data pulled together (after changes still same row length)
     write_csv(fulldata, "Data/DataProcessing/df/fulldata.csv")
     save(fulldata, file = "Data/DataProcessing/df/fulldata.rda")
     
 ```
+
+
+###Forecast NLCD Data for Present (2001-2016)
+
+Prepared future nlcd data with fragstats calculations on the online R server for faster processing and memory storage. The R scripts used can be found under the server, and the R scripts can be found stored under the R/Future folder as NF_Future and NLCD_Future. NF_Future is the function created to do all the computation, and NLCD_Future carries our the function for the different desired years and gets the NLCD in an appropriate spreadsheet format. Will just put in the saved csvs below, where they were transfered from the online server.
+
+
+```{r}
+
+#Quick data combination for nlcd
+
+#Read in the NLCD files and rbind (works for now-only files are 2001, 2006, 2011, 2016)
+  file_names <- dir("Data/DataProcessing/Future/nlcd_forecast", pattern = ".csv", full.names = TRUE) #files located per year
+  nlcd <- do.call(rbind,lapply(file_names,readr::read_csv))
+
+#Change years to match those in the other datasets so can combine by FIPS and years
+  #2001 to 2002, 2006 to 2007, 2011 to 2012, and 2016 to 2017
+  nlcd$Year[nlcd$Year==2001] <- 2002
+  nlcd$Year[nlcd$Year==2006] <- 2007
+  nlcd$Year[nlcd$Year==2011] <- 2012
+  nlcd$Year[nlcd$Year==2016] <- 2017
+
+#Write final nlcd data to be used in combination with other dataframes
+   write_csv(nlcd, "Data/DataProcessing/Future/df/nlcd_forecast.csv")
+
+#############################
+  
+#Read in forecast nlcd
+nlcd<-read_csv("Data/DataProcessing/Future/df/nlcd_forecast.csv") %>% 
+  mutate(FIPS=as.numeric(FIPS))
+
+#Read in forecast LCP
+LCP<-read_csv("Data/DataProcessing/Future/df/LargeCropPatch_forecast.csv") %>% 
+  mutate(FIPS=as.numeric(FIPS))
+
+
+#Read in the other datasets
+coa<-readr::read_csv("Data/DataProcessing/df/coa.csv")
+cdl<-readr::read_csv("Data/DataProcessing/df/cdl.csv")
+
+ERS<-readxl::read_xls("Data/DataProcessing/ERS/ERSRegions_To_Counties.xls") %>% 
+  select(1:3)
+  colnames(ERS)<-c("FIPS", "ERSCode", "ERSName")
+ASD<-readr::read_csv("Data/DataProcessing/ASD/ASD_County_Crosswalk.csv") %>% 
+  select(statecountyfips, StateASD)
+  colnames(ASD)<-c("FIPS", "ASDCode")
+climate<-readr::read_csv("Data/DataProcessing/df/climate.csv") %>% 
+  dplyr::rename(FIPS=fips, Year=year)
+
+#List and merge first four datasets by the unique combination of FIPS and Year Values
+fulldata<-list(coa, cdl, nlcd, LCP, climate) %>% 
+  reduce(full_join, by=c("FIPS", "Year"))
+
+#Merge with ERS and ASD by just FIPS
+fulldata<-list(fulldata, ERS, ASD) %>% 
+  reduce(full_join, by=c("FIPS"))
+
+
+#Drop counties with changed official county borders, etc. issues (same as Larsen 2015 paper)
+fulldata<-fulldata %>%
+  filter(!(FIPS>=51200 & FIPS<=52000)) %>% #VA counties
+  filter(!(FIPS>=2000 & FIPS<3000)) %>% #AK
+  filter(!(FIPS>=15000 & FIPS<16000)) %>% #HI
+  filter(!(FIPS==08001)&!(FIPS==08013)&!(FIPS==08059)&!(FIPS==08014)&!(FIPS==08123)&
+           !(FIPS==30113)&!(FIPS==30031)&!(FIPS==30067)&!(FIPS==08031)&
+           !(FIPS==24031)&!(FIPS==24033)&!(FIPS==37031)&!(FIPS==37049)&
+           !(FIPS==12045)&!(FIPS==12037)&!(FIPS==11001)&!(FIPS==24510)&
+           !(FIPS==29510)&!(FIPS==24510)&!(FIPS==12025)&!(FIPS==12086)) #Counties with changing borders
+
+
+#Add in columns for natural-crops edge density
+  #Have shared edge length between natural land and crops divided by county area (ag)
+fulldata<-fulldata %>% #Changed edge metrics to use CountyArea instead (similar output but slighlty more accurate)
+    dplyr::mutate(natural_crops_ed=tel_naturalcrops_nc/CountyArea_ha) %>% #meters shared edge per hectare county area
+    dplyr::mutate(forest_crops_ed=tel_forestcrop_fc/CountyArea_ha) %>% 
+    dplyr::mutate(shrubgrass_crops_ed=tel_shrubgrasscrop_sgc/CountyArea_ha)
+
+  
+#Remove rows with NA value for year
+  fulldata<-fulldata[!is.na(fulldata$Year),]
+
+  #Name as fulldata_forecast
+  fulldata_forecast<-fulldata
+    
+#Write fulldata_forecast to df folder as all data pulled together
+    write_csv(fulldata_forecast, "Data/DataProcessing/Future/df/fulldata_forecast.csv")
+    save(fulldata_forecast, file = "Data/DataProcessing/Future/df/fulldata_forecast.rda")
+    
+
+```
+
+
+
+
+
+### Forecast Data: 2050, all scenarios (B1, B2, A1B, A2)
+
+```{r}
+
+ #Read in nlcd_2050 (contains LCP and all needed calculations)
+nlcd_2050<-read_csv("Data/DataProcessing/Future/df/nlcd_2050.csv") %>% 
+  mutate(FIPS=as.numeric(FIPS))
+
+#Read in the other datasets (ERS and ASD)
+ERS<-readxl::read_xls("Data/DataProcessing/ERS/ERSRegions_To_Counties.xls") %>% 
+  select(1:3)
+  colnames(ERS)<-c("FIPS", "ERSCode", "ERSName")
+ASD<-readr::read_csv("Data/DataProcessing/ASD/ASD_County_Crosswalk.csv") %>% 
+  select(statecountyfips, StateASD)
+  colnames(ASD)<-c("FIPS", "ASDCode")
+
+
+#Merge nlcd with ERS and ASD by just FIPS
+fulldata<-list(nlcd_2050, ERS, ASD) %>% 
+  reduce(full_join, by=c("FIPS"))
+
+#Drop counties with changed official county borders, etc. issues (same as Larsen 2015 paper)
+fulldata<-fulldata %>%
+  filter(!(FIPS>=51200 & FIPS<=52000)) %>% #VA counties
+  filter(!(FIPS>=2000 & FIPS<3000)) %>% #AK
+  filter(!(FIPS>=15000 & FIPS<16000)) %>% #HI
+  filter(!(FIPS==08001)&!(FIPS==08013)&!(FIPS==08059)&!(FIPS==08014)&!(FIPS==08123)&
+           !(FIPS==30113)&!(FIPS==30031)&!(FIPS==30067)&!(FIPS==08031)&
+           !(FIPS==24031)&!(FIPS==24033)&!(FIPS==37031)&!(FIPS==37049)&
+           !(FIPS==12045)&!(FIPS==12037)&!(FIPS==11001)&!(FIPS==24510)&
+           !(FIPS==29510)&!(FIPS==24510)&!(FIPS==12025)&!(FIPS==12086)) #Counties with changing borders
+
+#Remove rows with NA value for year (only ERS/ASD data, no NLCD)
+  fulldata<-fulldata[!is.na(fulldata$Year),]
+
+  #Name as fulldata_2050
+  fulldata_2050<-fulldata
+    
+#Write fulldata_2050 to df folder as all data pulled together
+    write_csv(fulldata_2050, "Data/DataProcessing/Future/df/fulldata_2050.csv")
+    save(fulldata_2050, file = "Data/DataProcessing/Future/df/fulldata_2050.rda")
+
+
+
+```
+
+
+### Fulldata for CoA only all years
+
+
+```{r combine, message=F, warning=F}
+
+#Read in the datasets
+coa_allyears<-readr::read_csv("Data/DataProcessing/df/coa_allyears.csv")
+ERS<-readxl::read_xls("Data/DataProcessing/ERS/ERSRegions_To_Counties.xls") %>% 
+  select(1:3)
+  colnames(ERS)<-c("FIPS", "ERSCode", "ERSName")
+ASD<-readr::read_csv("Data/DataProcessing/ASD/ASD_County_Crosswalk.csv") %>% 
+  select(statecountyfips, StateASD)
+  colnames(ASD)<-c("FIPS", "ASDCode")
+climate<-readr::read_csv("Data/DataProcessing/df/climate.csv") %>% 
+  dplyr::rename(FIPS=fips, Year=year)
+
+#Merge with CoA with ERS and ASD by just FIPS
+fulldata<-list(coa_allyears, climate) %>% 
+  reduce(full_join, by=c("FIPS", "Year"))
+
+
+fulldata<-list(fulldata, ERS, ASD) %>% 
+  reduce(full_join, by=c("FIPS"))
+
+
+#Drop counties with changed official county borders, etc. issues (same as Larsen 2015 paper)
+fulldata<-fulldata %>%
+  filter(!(FIPS>=51200 & FIPS<=52000)) %>% #VA counties
+  filter(!(FIPS>=2000 & FIPS<3000)) %>% #AK
+  filter(!(FIPS>=15000 & FIPS<16000)) %>% #HI
+  filter(!(FIPS==08001)&!(FIPS==08013)&!(FIPS==08059)&!(FIPS==08014)&!(FIPS==08123)&
+           !(FIPS==30113)&!(FIPS==30031)&!(FIPS==30067)&!(FIPS==08031)&
+           !(FIPS==24031)&!(FIPS==24033)&!(FIPS==37031)&!(FIPS==37049)&
+           !(FIPS==12045)&!(FIPS==12037)&!(FIPS==11001)&!(FIPS==24510)&
+           !(FIPS==29510)&!(FIPS==24510)&!(FIPS==12025)&!(FIPS==12086)) #Counties with changing borders
+
+#Remove rows with NA value for year
+  fulldata<-fulldata[!is.na(fulldata$Year),]
+  fulldata_coa_allyrs<-fulldata #save as final name
+    
+#Write fulldata to df folder as all data pulled together (after changes still same row length)
+    write_csv(fulldata_coa_allyrs, "Data/DataProcessing/df/fulldata_coa_allyrs.csv")
+    save(fulldata_coa_allyrs, file = "Data/DataProcessing/df/fulldata_coa_allyrs.rda")
+    
+```
+
+
+
+
+
+
+

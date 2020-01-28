@@ -1,64 +1,45 @@
-# #Creating NF Script for the Server only, for higher processing power and memory, and better parallel processing.
-# library(doParallel)
-# #Create function to perform zonal statistics
-# compute_ecozone_stats<-function(polygonlayer, rasterstack){
-#   
-#   registerDoParallel(cores=19) #initiate multiple core for processing
-#   #ptm <- proc.time() #time the process
-#   result<-foreach (i = 1:nrow(polygonlayer), .combine=rbind) %dopar% { #number of polygons to iterate through
-#     #BUNCH OF STUFF HAPPENS RESULTING IN FINAL DF-FINAL SHOULD BE FIPS< AND THEN RBIND ACROSS STATE
-#     #DO FOR EACH STATE< WHICH IS POLYGON LAYER an dYEAR
-#     return(final)
-#   }
-#   return(result)
-#   #proc.time() - ptm
-#   endCluster()
-#   
-# } #end function compute_ecozone_stats
-
-
 nf=function(year, state){
   
-  #Load in Packages
-  ################################
-  # install.packages("raster")
-  # install.packages("sf")
-  # install.packages("rgdal")
-  # install.packages("landscapemetrics")
-  # install.packages("tidyverse")
-  library(raster) #rasters
-  library(sf)#shapefiles
-  library(landscapemetrics)#fragstats
-  library(tidyverse) #datatable manipulation
-  library(rgdal)
-  options(scipen=999) #no scientific notation
-  rasterOptions(tmpdir = "/home/sofie/Data/RasterTemp", tmptime=24)
-  ################################
-  
-  #Set variables
-  ##################
-  year<-year
-  i<-state
-  
-  #Read in Data
-  ################################
-  
-  nlcd<-raster(paste0("/home/sofie/Data/NLCD/NLCD_", year, "_Land_Cover_L48_20190424.img"))
-  #Read in counties layer (3232 rows)
-  counties<-read_sf("/home/sofie/Data/TIGER2018_Counties/tl_2018_us_county.shp") %>%
-    dplyr::select(STATEFP,GEOID)
-  counties<-st_transform(counties, "+proj=aea +lat_1=29.5 +lat_2=45.5 +lat_0=23 +lon_0=-96 +x_0=0 +y_0=0 +ellps=WGS84
-                         +towgs84=0,0,0,-0,-0,-0,0 +units=m +no_defs ") #Project counties to nlcd projection
-  contig48_counties<-subset(counties,counties$STATEFP!="02"& counties$STATEFP!="15"&
-                              counties$STATEFP!="60"&counties$STATEFP!="66"&
-                              counties$STATEFP!="69"&counties$STATEFP!="72"&
-                              counties$STATEFP!="74"&counties$STATEFP!="78")
-  
-  #Analysis
-  #################################
-  states<-unique(contig48_counties$STATEFP)#Unique states to cluster by
-  states<-sort(states)
-  
+#Load in Packages
+################################
+# install.packages("raster")
+# install.packages("sf")
+# install.packages("rgdal")
+# install.packages("landscapemetrics")
+# install.packages("tidyverse")
+library(raster) #rasters
+library(sf)#shapefiles
+library(landscapemetrics)#fragstats
+library(tidyverse) #datatable manipulation
+library(rgdal)
+options(scipen=999) #no scientific notation
+rasterOptions(tmpdir = "Z:/Sofie/Data/RasterTemp", tmptime=24)
+################################
+
+#Set variables
+##################
+year<-year
+i<-state
+
+#Read in Data
+################################
+
+nlcd<-raster(paste0("Z:/Sofie/Data/NLCD/NLCD_", year, "_Land_Cover_L48_20190424.img"))
+#Read in counties layer (3232 rows)
+counties<-read_sf("Z:/Sofie/Data/TIGER2018_Counties/tl_2018_us_county.shp") %>%
+  dplyr::select(STATEFP,GEOID)
+counties<-st_transform(counties, "+proj=aea +lat_1=29.5 +lat_2=45.5 +lat_0=23 +lon_0=-96 +x_0=0 +y_0=0 +ellps=WGS84
+                       +towgs84=0,0,0,-0,-0,-0,0 +units=m +no_defs ") #Project counties to nlcd projection
+contig48_counties<-subset(counties,counties$STATEFP!="02"& counties$STATEFP!="15"&
+                            counties$STATEFP!="60"&counties$STATEFP!="66"&
+                            counties$STATEFP!="69"&counties$STATEFP!="72"&
+                            counties$STATEFP!="74"&counties$STATEFP!="78")
+
+#Analysis
+#################################
+states<-unique(contig48_counties$STATEFP)#Unique states to cluster by
+states<-sort(states)
+
   #################################
   #Matrix per State
   ##################################
@@ -134,7 +115,7 @@ nf=function(year, state){
     total<-total+1
     county<-subset(state, state$GEOID==c)
     nlcd_crop<-raster::crop(nlcd, extent(county))
-    nlcdcounty<-raster::mask(nlcd, county)
+    nlcdcounty<-raster::mask(nlcd_crop, county)
     fips<-c
     print(fips)
     print(total/length(counties)*100)
@@ -226,7 +207,7 @@ nf=function(year, state){
     
     
   }#End counties for loop
-  
+
   colnames(allmat)<-c("FIPS","ed_wat", "ed_ldev", "ed_hdev", "ed_bare", "ed_df", "ed_ef",
                       "ed_mf", "ed_shrub", "ed_grass", "ed_pas", "ed_crops",  "ed_wet",
                       "el_wat", "el_ldev", "el_hdev", "el_bare", "el_df", "el_ef",
@@ -256,7 +237,7 @@ nf=function(year, state){
     dplyr::select(year, everything())#year column before everything
   statename<-state$STATEFP[1]
   write.csv(finalmat,
-            file=paste0("/home/sofie/Data/NLCD_Frag_Cluster/nlcd_", year, "/", statename, ".csv"),
+            file=paste0("Z:/Sofie/Data/NLCD_Frag_Cluster/nlcd_", year, "/", statename, ".csv"),
             row.names=FALSE)
   
 } #end function

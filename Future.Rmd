@@ -1,0 +1,514 @@
+---
+title: "Future"
+author: "Sofie McComb"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+This R Markdown document will perform the panel linear model regressions for determining the relationship of agricultural and landscape variables on insectide use in the year 2050.
+
+Twoways (individual and time) fixed effects models will be run for each regression. Individual will be represented by ASDCode and time will be represented by year.
+
+ 
+## Data Preparation
+
+This section will load the necessary packages and data
+
+#### Load Packages
+
+```{r packages, message=F, warning=F}
+
+#Load the needed packages (install first if necessary)
+library(tidyverse) #Datatable manipulation
+library(purrr) #For reduce function using full_join
+library(car) # For calculating variance inflation factors (vif)
+library(broom) #Convert statistical analysis into df
+library(reshape2)#For wide to long data format
+library(clubSandwich) #for coeftest (cluster robust standard errors)
+
+#Set options
+options(scipen=999) #no scientific notation (all)
+
+```
+
+
+#### Load Data
+
+Loading the fulldata_forecast and fulldata_2050.
+
+```{r data, message=F, warning=F}
+
+load("Data/DataProcessing/df/fulldata_coa_allyrs.rda") #Load crop all years data for linear extrapolation
+# load("Data/DataProcessing/Future/df/fulldata_forecast.rda")
+# load("Data/DataProcessing/Future/df/fulldata_2050.rda")
+
+
+```
+
+
+
+### Linear Extrapolation of Crop Covariates to 2050
+
+```{r}
+
+load("Data/DataProcessing/df/fulldata_coa_allyrs.rda")
+#Select needed crop columns from combined datasets 
+coa_crops<-fulldata_coa_allyrs %>% 
+  select(FIPS, Year, soysmallgrain_planted, corn_planted, fruitveg_planted)
+
+uniqFIPS<-unique(coa_crops$FIPS) #unique FIPS to for loop through
+crops_df<- data.frame() #empty df to add rows to
+#For each unique FIPS
+for (i in 1: length(uniqFIPS)){
+    fips=uniqFIPS[i] #select FIPS
+    coa_fips<-coa_crops %>% filter(FIPS==fips) #filter for rows by fips
+    n_years<-nrow(coa_fips) #how many observations
+    
+    #Calculate change over 30 years period (only if available for all 7 years)
+    if(n_years==7){
+    #Years 2017[1] to 1987[7] top to bottom
+    #Soygrain in 3, Corn in 4, fruitveg in 5
+    soygrain<-((coa_fips[1,3]+coa_fips[2,3])/2)-((coa_fips[6,3]+coa_fips[7,3])/2)
+    corn<-((coa_fips[1,4]+coa_fips[2,4])/2)-((coa_fips[6,4]+coa_fips[7,4])/2)
+    fruitveg<-((coa_fips[1,5]+coa_fips[2,5])/2)-((coa_fips[6,5]+coa_fips[7,5])/2)
+    fips_row<-cbind(fips, soygrain, corn, fruitveg)
+    }else
+    fips_row<-cbind(fips, soygrain=NA, corn=NA, fruitveg=NA)
+    
+    #Rbind each row on
+    colnames(fips_row)<-c("FIPS", "SoySmallgrain", "Corn", "FruitVeg")
+    crops_df<-rbind(crops_df, fips_row)
+}
+
+#Removed NA so only extrapolated for rows with data (have NA so can see which FIPS missing)-this way will have even panel
+crops_df_final<-crops_df %>% filter(!is.na(SoySmallgrain)|!is.na(Corn)|!is.na(FruitVeg))
+
+final_fips<-crops_df_final %>% select(FIPS)
+# save(final_fips, file = "Data/DataProcessing/df/final_fips.rda")
+
+
+#Final 33 years of change (from 2017 to 2050) [1.1 because 33 years into future/30 years past change =1.1]
+crops_33yrs_change<-crops_df_final %>% 
+  mutate(SoySmallgrain=1.1*SoySmallgrain,
+         Corn=1.1*Corn,
+         FruitVeg=1.1*FruitVeg)
+colnames(crops_33yrs_change)<-c("FIPS", "SoySGChange", "CornChange", "FruitVegChange")
+
+#Now add 33 years of change to the 2017 value to have the 2050 value
+coa_future<- final_fips%>% 
+  left_join(coa_crops) %>% #Only the balanced observations because final_fips
+  filter(Year==2017) %>%#Only year 2017 (to add and project) 
+  full_join(crops_33yrs_change) %>% #Add change columns
+  mutate(SoySmallGrain=soysmallgrain_planted+SoySGChange,
+         Corn=corn_planted+CornChange,
+         FruitVeg=fruitveg_planted+FruitVegChange) %>% #Add change to 2017 to get 2050 value
+  select(FIPS, Year, SoySmallGrain, Corn, FruitVeg) %>%  #Select final 2050 value columns
+  mutate(Year=2050) #reset year column to 2050 (newly calculated values for 2050)
+
+coa_future[coa_future < 0] <- 0 #Change all negative values to 0 (cannot have negative acreage)
+
+# #Examine summed proportions
+coa_2050<-coa_future %>%
+  dplyr::mutate(sum=SoySmallGrain+Corn+FruitVeg) %>% arrange(sum)
+#295 FIPS out of 2560 with total proportions over 1
+#115 FIPS out of 2560 that had total proportion of 0
+
+#Save rows where sum is 1 or less
+coa_sum1<-coa_2050 %>% 
+  dplyr::filter(sum<=1)
+
+#Grab rows where sum is greater than 1, and then reduce value of each crop covariate proportionally so that total summed value equals 1
+#47 rows out of 2549 where changed
+coa_fix<-coa_2050 %>% 
+  filter(sum>1) %>% 
+  dplyr::mutate(SoySmallGrain=SoySmallGrain*(1/sum),
+                Corn=Corn*(1/sum),
+                FruitVeg=FruitVeg*(1/sum)) %>% 
+  dplyr::mutate(sum=SoySmallGrain+Corn+FruitVeg)
+
+#Put back two df
+coa_final<-rbind(coa_sum1, coa_fix) %>% 
+  arrange(FIPS)
+
+write_csv(coa_final, "Data/Future/df/crop_covariates_2050_proportions.csv")
+
+```
+
+
+Using acreage
+```{r}
+
+# load("Data/DataProcessing/df/fulldata_coa_allyrs.rda")
+# #Select needed crop columns from combined datasets 
+# coa_crops<-fulldata_coa_allyrs %>% 
+#   select(FIPS, Year, soy_smallgrains, corn, fruitveg) #switched to acreage rather than proportions
+#   # select(FIPS, Year, soysmallgrain_planted, corn_planted, fruitveg_planted)
+# 
+# uniqFIPS<-unique(coa_crops$FIPS) #unique FIPS to for loop through
+# crops_df<- data.frame() #empty df to add rows to
+# #For each unique FIPS
+# for (i in 1: length(uniqFIPS)){
+#     fips=uniqFIPS[i] #select FIPS
+#     coa_fips<-coa_crops %>% filter(FIPS==fips) #filter for rows by fips
+#     n_years<-nrow(coa_fips) #how many observations
+#     
+#     #Calculate change over 30 years period (only if available for all 7 years)
+#     if(n_years==7){
+#     #Years 2017[1] to 1987[7] top to bottom
+#     #Soygrain in 3, Corn in 4, fruitveg in 5
+#     soygrain<-((coa_fips[1,3]+coa_fips[2,3])/2)-((coa_fips[6,3]+coa_fips[7,3])/2)
+#     corn<-((coa_fips[1,4]+coa_fips[2,4])/2)-((coa_fips[6,4]+coa_fips[7,4])/2)
+#     fruitveg<-((coa_fips[1,5]+coa_fips[2,5])/2)-((coa_fips[6,5]+coa_fips[7,5])/2)
+#     fips_row<-cbind(fips, soygrain, corn, fruitveg)
+#     }else
+#     fips_row<-cbind(fips, soygrain=NA, corn=NA, fruitveg=NA)
+#     
+#     #Rbind each row on
+#     colnames(fips_row)<-c("FIPS", "SoySmallgrain", "Corn", "FruitVeg")
+#     crops_df<-rbind(crops_df, fips_row)
+# }
+# 
+# #Removed NA so only extrapolated for rows with data (have NA so can see which FIPS missing)-this way will have even panel
+# crops_df_final<-crops_df %>% filter(!is.na(SoySmallgrain)|!is.na(Corn)|!is.na(FruitVeg))
+# 
+# final_fips<-crops_df_final %>% select(FIPS)
+# # save(final_fips, file = "Data/DataProcessing/df/final_fips.rda")
+# 
+# 
+# #Final 33 years of change (from 2017 to 2050) [1.1 because 33 years into future/30 years past change =1.1]
+# crops_33yrs_change<-crops_df_final %>% 
+#   mutate(SoySmallgrain=1.1*SoySmallgrain,
+#          Corn=1.1*Corn,
+#          FruitVeg=1.1*FruitVeg)
+# colnames(crops_33yrs_change)<-c("FIPS", "SoySGChange", "CornChange", "FruitVegChange")
+# 
+# #Now add 33 years of change to the 2017 value to have the 2050 value
+# coa_future<- final_fips%>% 
+#   left_join(coa_crops) %>% #Only the balanced observations because final_fips
+#   filter(Year==2017) %>%#Only year 2017 (to add and project) 
+#   full_join(crops_33yrs_change) %>% #Add change columns
+#   mutate(SoySmallGrain=soy_smallgrains+SoySGChange,
+#          Corn=corn+CornChange,
+#          FruitVeg=fruitveg+FruitVegChange) %>% #Add change to 2017 to get 2050 value
+#   select(FIPS, Year, SoySmallGrain, Corn, FruitVeg) %>%  #Select final 2050 value columns
+#   mutate(Year=2050) #reset year column to 2050 (newly calculated values for 2050)
+# 
+# coa_future[coa_future < 0] <- 0 #Change all negative values to 0 (cannot have negative acreage)
+# 
+# 
+# 
+# 
+# #Pull in NLCD 2050 projections, and use croplandarea_ha but convert to acreage as cropland area per scenario
+# #Calculate crop covariates as crop acreage in 2050/cropland acreage in 2050 [Do for each scenario]
+# 
+# load("Data/DataProcessing/Future/df/fulldata_2050.rda")
+# 
+# croparea_2050<-fulldata_2050 %>% 
+#   dplyr::select(FIPS, Year, Scenario, CroplandArea_ha) %>% 
+#   dplyr::mutate(CroplandArea=CroplandArea_ha*2.471) %>% 
+#   dplyr::select(FIPS, Scenario, CroplandArea)
+# 
+# #Left Join coa_future with croparea_2050 so only FIPS that match
+# 
+# coa_croparea_2050<-left_join(coa_future, croparea_2050, by="FIPS") %>% 
+#   dplyr::select(FIPS, Year, Scenario, CroplandArea, SoySmallGrain, Corn, FruitVeg) %>%  #rearrange order
+#   dplyr::mutate(soysmallgrain_cropland=SoySmallGrain/CroplandArea,
+#                 corn_cropland=Corn/CroplandArea,
+#                fruitveg_cropland=FruitVeg/CroplandArea)
+# 
+# write_csv(coa_croparea_2050, "Data/Future/df/crop_covariates_2050.csv")
+# 
+# # #Examine summed proportions
+# # coa_2050<-coa_future %>% 
+# #   mutate(sum=SoySmallGrain+Corn+FruitVeg) %>% arrange(sum)
+# # #295 FIPS out of 2560 with total proportions over 1
+# # #115 FIPS out of 2560 that had total proportion of 0
+
+
+```
+
+
+### Visualizations
+
+##Boxplots of variables
+
+### Boxplots of time trends of covariates
+
+Creating boxplots showing the values for each of the variables being considered in any of the regression models, across the years being considered. Using the fulldata datasets (loaded in the variable_time_boxplots.R script sourced below).
+
+
+```{r var boxplots, message=F, warning=F}
+
+#Function to create boxplot visualizations
+#Load necessary packages
+library(ggplot2)
+
+#Load fulldata to pull from
+load("Data/DataProcessing/Future/df/fulldata_2050.rda")
+
+fulldata_2050<-fulldata_2050 %>% 
+  mutate(Scenario=as.factor(Scenario))
+
+var_boxplot<-function(variable, yaxis){
+  #Create Boxplot 
+  plot<-ggplot(fulldata_2050, aes(x=factor(Year), y=variable, group=Scenario, color=Scenario)) + 
+    geom_boxplot(size=1, notch=TRUE)+
+    scale_y_continuous(name=yaxis)+
+    scale_x_discrete(name="Year")+
+    theme_light()+
+    theme(panel.grid.major = element_line(colour = "#d3d3d3"),
+          # panel.grid.minor = element_blank(),
+          axis.text=element_text(colour="black", size = 12),
+          axis.title=element_text(colour="black", size = 16),
+          axis.line = element_line(size=0.5, colour = "black"))
+  return(plot)
+}
+
+
+#Create boxplots for variables of interest (NA values will be removed)
+plandcrops_plot<-var_boxplot(variable=fulldata_2050$pland_crops, yaxis="Percent of Cty in Cropland")
+largepatch_plot<-var_boxplot(variable=fulldata_2050$Prop_LCP, yaxis="Prop. of Cropland with Lg. Crop Patches")
+ncedge_plot<-var_boxplot(variable=fulldata_2050$natural_crops_ed, yaxis="Natural to Crop Land Edges")
+msidi_plot<-var_boxplot(variable=fulldata_2050$msidi, yaxis="Landscape Diversity")
+
+
+#Arrange boxplots on one page
+allvarplots<-ggpubr::ggarrange(plandcrops_plot,
+              largepatch_plot, 
+              ncedge_plot,
+              msidi_plot,
+          labels = c("A", "B", "C", "D"),
+          ncol = 2, nrow = 2)
+
+#Save the combined variable boxplots page
+ggpubr::ggexport(allvarplots, filename = "Data/Future/boxplots/covariates_timetrends_boxplots_2050_nlcd.png",
+          width = 1500, height = 1500)
+
+```
+
+
+###Just COA
+
+```{r}
+#Function to create boxplot visualizations
+#Load necessary packages
+library(ggplot2)
+
+var_boxplot<-function(variable, yaxis){
+  #Create Boxplot 
+  plot<-ggplot(coa_2050, aes(x=factor(Year), y=variable)) + 
+    geom_boxplot(colour="#1F3552", fill="#4271AE", size=1, notch=TRUE)+
+    scale_y_continuous(name=yaxis)+
+    scale_x_discrete(name="Year")+
+    theme_light()+
+    theme(panel.grid.major = element_line(colour = "#d3d3d3"),
+          panel.grid.minor = element_blank(),
+          axis.text=element_text(colour="black", size = 12),
+          axis.title=element_text(colour="black", size = 16),
+          axis.line = element_line(size=0.5, colour = "black"))
+  return(plot)
+}
+
+
+#Create boxplots for variables of interest (NA values will be removed)
+
+soygrain_plot<-var_boxplot(variable=coa_2050$SoySmallGrain, yaxis="Prop. Soybeans & Sm. Grains")
+corn_plot<-var_boxplot(variable=coa_2050$Corn, yaxis="Prop. Corn")
+fruitveg_plot<-var_boxplot(variable=coa_2050$FruitVeg, yaxis="Prop. Fruit & Veg.")
+
+
+#Arrange boxplots on one page
+allvarplots<-ggpubr::ggarrange(soygrain_plot, 
+              corn_plot, fruitveg_plot,
+          labels = c("A", "B", "C"),
+          ncol = 3, nrow = 1)
+
+#Save the combined variable boxplots page
+ggpubr::ggexport(allvarplots, filename = "Data/Future/boxplots/covariates_timetrends_boxplots_2050_coa.png",
+          width = 1200, height = 600)
+```
+
+
+
+
+
+
+
+
+
+###Combine different dataframes for forecasting
+
+Combine fulldata, fulldata2050, and crop covariates
+
+```{r}
+
+load("Data/DataProcessing/df/fulldata.rda")
+load("Data/DataProcessing/Future/df/fulldata_2050.rda")
+coa_2050<-readr::read_csv("Data/Future/df/crop_covariates_2050_proportions.csv")
+
+
+```
+
+
+###Forecasting
+
+####Create model
+```{r}
+
+#Create model
+data_model_na<-fulldata %>% 
+  dplyr::select(FIPS, Year, ASDCode, ERSCode,
+         insect_planted, pland_crops, Prop_LCP, 
+         soysmallgrain_planted, corn_planted, fruitveg_planted,
+         natural_crops_ed, msidi) %>% 
+  na.omit() %>% 
+   dplyr::select(FIPS, Year, ASDCode, ERSCode,
+         insect_planted, pland_crops, Prop_LCP, 
+         soysmallgrain_planted, corn_planted, fruitveg_planted,
+         natural_crops_ed, msidi) 
+dat_fips<- data_model_na%>%
+    group_by(FIPS) %>%
+    summarise(count=n()) %>% 
+  filter(count==4) %>% 
+  dplyr::select(FIPS) #Get FIPS FOR BALANCED PANEL
+data_model<-left_join(dat_fips, data_model_na)%>%#Balanced the panel, 10604 observations
+  mutate_at(scale, .vars=vars(-FIPS, -Year, -ERSCode, -ASDCode, -insect_planted)) %>%  #Scale by subtracting column mean and dividing by column SD
+    rename(Insecticide=insect_planted,
+         PercentCrop=pland_crops,
+         LargeCropPatches=Prop_LCP,
+         SoyGrains=soysmallgrain_planted,
+         Corn=corn_planted,
+         FruitVeg=fruitveg_planted,
+         NaturalCropEdge=natural_crops_ed,
+         LandDiversity=msidi)
+
+
+lm_model<-lm(Insecticide~PercentCrop+LargeCropPatches+
+                 SoyGrains+Corn+FruitVeg+
+                 NaturalCropEdge+LandDiversity+
+                 factor(ASDCode), data=data_model)
+
+```
+
+
+#### Sum of differences
+
+Generate differences: Future 2050 one scenario values per FIPS minus the values per FIPS per year for current
+
+Divide by 100,000 to get y in hundred k of HA?-Currently in acreage?-Currently ignore step because proportions
+
+Take mean across the years per FIPS
+
+```{r}
+
+#currently just do for one scenario-but eventually iterate through scenarios
+fulldata_2050_B1<-fulldata_2050 %>% filter(Scenario=="B1")
+coa_2050_df<-coa_2050[,1:5] %>%
+  dplyr::rename(soysmallgrain_planted=SoySmallGrain, 
+         corn_planted=Corn,
+         fruitveg_planted=FruitVeg)
+#Create model
+data_model_na_2050<-full_join(fulldata_2050_B1, coa_2050_df) %>% 
+  dplyr::select(FIPS, Year, ASDCode, ERSCode,
+         pland_crops, Prop_LCP, 
+         soysmallgrain_planted, corn_planted, fruitveg_planted,
+         natural_crops_ed, msidi) %>% #same except no insect_planted
+  na.omit() %>% 
+   dplyr::select(FIPS, Year, ASDCode, ERSCode,
+         pland_crops, Prop_LCP, 
+         soysmallgrain_planted, corn_planted, fruitveg_planted,
+         natural_crops_ed, msidi) 
+data_model_2050<-left_join(dat_fips, data_model_na_2050)%>%#Match to data_model FIPS so same FIPS compared
+  mutate_at(scale, .vars=vars(-FIPS, -Year, -ERSCode, -ASDCode)) %>%  #Scale by subtracting column mean and dividing by column SD
+    rename(PercentCrop=pland_crops,
+         LargeCropPatches=Prop_LCP,
+         SoyGrains=soysmallgrain_planted,
+         Corn=corn_planted,
+         FruitVeg=fruitveg_planted,
+         NaturalCropEdge=natural_crops_ed,
+         LandDiversity=msidi)
+
+
+```
+
+
+
+```{r}
+
+#Generate Differences
+
+# data_model_yr<-data_model %>% filter(Year==2017)
+
+df_2050<-data_model_2050 %>% dplyr::select(-Year, -ASDCode, -ERSCode) %>% arrange(FIPS)
+df_2002<-data_model %>% filter(Year==2002) %>% dplyr::select(-Year, -ASDCode, -ERSCode, -Insecticide) %>% arrange(FIPS)
+df_2007<-data_model %>% filter(Year==2007) %>% dplyr::select(-Year, -ASDCode, -ERSCode, -Insecticide) %>% arrange(FIPS)
+df_2012<-data_model %>% filter(Year==2012) %>% dplyr::select(-Year, -ASDCode, -ERSCode, -Insecticide) %>% arrange(FIPS)
+df_2017<-data_model %>% filter(Year==2017) %>% dplyr::select(-Year, -ASDCode, -ERSCode, -Insecticide) %>% arrange(FIPS)
+
+fips_order<-df_2050$FIPS
+
+#Differences
+df_0250<-df_2050-df_2002 
+df_0250<-df_2050-df_2007
+df_1250<-df_2050-df_2012
+df_1750<-df_2050-df_2017
+
+#Did not take sum of county area because already using proportions (also currenlty not scaling by sd)
+
+#Average across years and add in ASD
+#Read in ASD file, to be combined with the other data as is
+ASD<-readr::read_csv("Data/DataProcessing/ASD/ASD_County_Crosswalk.csv")%>% 
+  dplyr::select(statecountyfips, StateASD)
+  colnames(ASD)<-c("FIPS", "ASDCode")
+
+df_yrs<-(df_0250+df_0250+df_1250+df_1750)/4 
+df_final<-df_yrs %>%
+  dplyr::mutate(FIPS=fips_order) %>% 
+  left_join(ASD, by=c("FIPS"))%>% 
+  dplyr::select(-FIPS) %>% 
+  tbl_df() %>% 
+  mutate_at(scale, .vars=vars(-ASDCode))
+
+
+```
+
+
+#### Apply coefficients to sum of differences
+
+```{r}
+
+# lm_model$call
+# 
+# library(biostat3)
+# library(lme4)
+predict_2050<-predict(lm_model, newdata=df_final) %>% 
+  as.data.frame() %>% 
+  dplyr::mutate(FIPS=fips_order)
+# lincom(lm_model, df_final)
+
+# ?lincom
+# #Figure out how to use lincom in R
+# x<-lm_model$coefficients[2]*df_final$PercentCrop+
+# lm_model$coefficients[3]*df_final$LargeCropPatches+
+# lm_model$coefficients[4]*df_final$SoyGrains+
+# lm_model$coefficients[5]*df_final$Corn+
+# lm_model$coefficients[6]*df_final$FruitVeg+
+# lm_model$coefficients[7]*df_final$NaturalCropEdge+
+# lm_model$coefficients[8]*df_final$LandDiversity
+
+# y<-x+lm_model$coefficients[1]
+# Insecticide<-as.data.frame(y) %>% 
+#   mutate(FIPS=fips_order) %>% 
+#   select(FIPS, everything())
+
+
+
+#Add intercept???
+#Deal with factor constants?
+
+
+```
+

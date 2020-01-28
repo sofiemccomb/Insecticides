@@ -1,0 +1,425 @@
+---
+title: "Future"
+author: "Sofie McComb"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+##Load Packages
+
+```{r}
+
+library(tidyverse)
+
+```
+
+
+## Data Processing
+
+###Future NLCD Data
+
+Prepared future nlcd data with fragstats calculations on the online R server for faster processing and memory storage. The R scripts used can be found under the server, and the R scripts can be found stored under the R/Future folder as NF_Future and NLCD_Future. NF_Future is the function created to do all the computation, and NLCD_Future carries our the function for the different desired years and gets the NLCD in an appropriate spreadsheet format. Will just put in the saved csvs below, where they were transfered from the online server.
+
+### Compare Results using Future vs Present
+
+```{r}
+
+# #Read in the NLCD files and rbind (works for now-only files are 2006, 2011, 2016-change later if nessary)
+#   file_names <- dir("Data/Future/DataProcessing/nlcd", pattern = ".csv", full.names = TRUE) #files located per year
+#   nlcd <- do.call(rbind,lapply(file_names,readr::read_csv))
+# 
+# 
+# #Change years to match those in the other datasets so can combine by FIPS and years
+#   #2001 to 2002, 2006 to 2007, 2011 to 2012, and 2016 to 2017
+#   nlcd$Year[nlcd$Year==2006] <- 2007
+#   nlcd$Year[nlcd$Year==2011] <- 2012
+#   nlcd$Year[nlcd$Year==2016] <- 2017
+# 
+# #Write final nlcd data to be used in combination with other dataframes
+#   write_csv(nlcd, "Data/Future/DataProcessing/df/nlcd.csv")
+  
+#Read in nlcd
+nlcd<-read_csv("Data/Future/DataProcessing/df/nlcd.csv")
+
+#Read in other datasets from dataprocessing to create comparable fulldata_future dataset
+    coa<-read_csv("Data/DataProcessing/df/coa.csv")
+    cdl<-read_csv("Data/DataProcessing/df/cdl.csv")
+    #Read in ERS file, to be combined with other data as is
+    ERS<-readxl::read_xls("Data/DataProcessing/ERS/ERSRegions_To_Counties.xls")
+    ERS<-ERS[,1:3]
+    colnames(ERS)<-c("FIPS", "ERSCode", "ERSName")
+    #Read in ASD file, to be combined with the other data as is
+    ASD<-readr::read_csv("Data/DataProcessing/ASD/ASD_County_Crosswalk.csv") %>% 
+      select(statecountyfips, StateASD)
+    colnames(ASD)<-c("FIPS", "ASDCode")
+
+
+#Make FIPS numeric for nlcd to match with other datasets
+nlcd$FIPS<-as.numeric(nlcd$FIPS)
+    
+#Make fulldata_future
+    #List and merge three datasets by the unique combination of FIPS and Year Values
+fulldata<-list(coa, cdl, nlcd) %>% 
+  reduce(full_join, by=c("FIPS", "Year"))
+
+#Merge with ERS and ASD by just FIPS
+fulldata<-list(fulldata, ERS, ASD) %>% 
+  reduce(full_join, by=c("FIPS"))
+
+
+#Drop the 9 VA counties 51515, 51530, 51580, 51595, 51600, 51610, 51678,51685, 51720 
+  #that had NA in CDL and that are essentially within other counties
+fulldata<-fulldata %>%
+  filter(!(FIPS==51515)&!(FIPS==51530)&!(FIPS==51580)&!(FIPS==51595)&!(FIPS==51600)&
+           !(FIPS==51610)&!(FIPS==51678)&!(FIPS==51685)&!(FIPS==51720))
+
+#Use 2017 county area to fill all other year county area so standardized per FIPS
+  fulldata<-fulldata %>% 
+    dplyr::group_by(FIPS) %>% 
+    arrange(desc(Year)) %>% 
+    dplyr::mutate(countyarea=countyarea[1]) %>% 
+    arrange(FIPS) %>% 
+    dplyr::ungroup()
+
+fulldata<-fulldata %>% 
+  dplyr::mutate(cropintensity=harvcrop/((pland_crops/100)*countyarea)) %>% 
+  dplyr::mutate(natural_crops_ed=tel_naturalcrops_nc/(countyarea*0.4046856422)) %>% #meters shared edge per hectare county area
+  dplyr::mutate(forest_crops_ed=tel_forestcrop_fc/(countyarea*0.4046856422)) %>% 
+  dplyr::mutate(shrubgrass_crops_ed=tel_shrubgrasscrop_sgc/(countyarea*0.4046856422))
+
+#Replace infinite values with NA for regression 
+  fulldata$cropintensity[sapply(fulldata$cropintensity, is.infinite)]<-NA
+  fulldata$natural_crops_ed[sapply(fulldata$natural_crops_ed, is.infinite)]<-NA
+  
+#If harvcrop or pland_crops is 0 then make cropintensity 0 
+  fulldata$cropintensity<- ifelse(fulldata$harvcrop==0, 0, fulldata$cropintensity)
+  fulldata$cropintensity<- ifelse(fulldata$pland_crops==0, 0, fulldata$cropintensity)
+  
+#Remove rows with NA value for year
+  fulldata<-fulldata[!is.na(fulldata$Year),]
+  
+#Name as fulldata_future
+  fulldata_future<-fulldata
+    
+#Write fulldata to df folder as all data pulled together
+    write_csv(fulldata_future, "Data/Future/DataProcessing/df/fulldata_future.csv")
+    save(fulldata_future, file = "Data/Future/DataProcessing/df/fulldata_future.rda")
+
+
+    
+    
+##############
+#Visualize with Boxplots
+    #Source R script to create boxplot visualizations
+load("Data/Future/DataProcessing/df/fulldata_future.rda")
+#This script develops a function to create boxplots of variable trends over time.
+
+  #The function is used in the Visualize.Rmd.
+
+#Load necessary packages
+library(ggplot2)
+#Example of function use: var_boxplot(variable=fulldata$insect_planted, yaxis="Prop.Cropland with Insecticides")
+
+var_boxplot<-function(variable, yaxis){
+  #Create Boxplot 
+  plot<-ggplot(fulldata_future, aes(x=factor(Year), y=variable)) + 
+    geom_boxplot(colour="#1F3552", fill="#4271AE", size=1, notch=TRUE)+
+    scale_y_continuous(name=yaxis)+
+    scale_x_discrete(name="Year")+
+    theme_light()+
+    theme(panel.grid.major = element_line(colour = "#d3d3d3"),
+          panel.grid.minor = element_blank(),
+          axis.text=element_text(colour="black", size = 12),
+          axis.title=element_text(colour="black", size = 16),
+          axis.line = element_line(size=0.5, colour = "black"))
+  return(plot)
+}
+
+
+#Create boxplots for variables of interest (NA values will be removed)
+insect_plot<-var_boxplot(variable=fulldata_future$insect_planted, yaxis="Prop. Cropland w/ Insecticides")
+plandcrops_plot<-var_boxplot(variable=fulldata_future$pland_crops, yaxis="Prop. of Cty in Cropland")
+edgecrops_plot<-var_boxplot(variable=fulldata_future$ed_crops, yaxis="Crop Edge Density (m/ha)")
+mnacrops_plot<-var_boxplot(variable=fulldata_future$mna_crops, yaxis="Avg. Acreage of Crop Patches (ha)")
+largefarm_plot<-var_boxplot(variable=fulldata_future$largefarm_planted, yaxis="Prop. of Cropland with Lg. Farms")
+soygrain_plot<-var_boxplot(variable=fulldata_future$soysmallgrain_planted, yaxis="Prop. Soybeans & Sm. Grains")
+corn_plot<-var_boxplot(variable=fulldata_future$corn_planted, yaxis="Prop. Corn")
+fruitveg_plot<-var_boxplot(variable=fulldata_future$fruitveg_planted, yaxis="Prop. Fruit & Veg.")
+msidi_plot<-var_boxplot(variable=fulldata_future$msidi, yaxis="Landscape Diversity")
+SDI_plot<-var_boxplot(variable=fulldata_future$SDI, yaxis="Crop Diversity")
+ncedge_plot<-var_boxplot(variable=fulldata_future$natural_crops_ed, yaxis="Natural to Crop Land Edges")
+fcedge_plot<-var_boxplot(variable=fulldata_future$forest_crops_ed , yaxis="Forest to Crop Land Edges")
+sgcedge_plot<-var_boxplot(variable=fulldata_future$shrubgrass_crops_ed , yaxis="Shrubland and Grassland to Crop Land Edges")
+
+#Save insecticides plot
+ggexport(insect_plot, filename = "Data/Future/Visualize/boxplots/insecticides_timetrends_boxplots_future.png")
+
+#Arrange boxplots on one page
+allvarplots<-ggarrange(plandcrops_plot,edgecrops_plot,
+              mnacrops_plot, largefarm_plot, 
+              soygrain_plot, corn_plot, fruitveg_plot,
+              msidi_plot,SDI_plot, 
+             ncedge_plot, fcedge_plot, sgcedge_plot,
+          labels = c("A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K"),
+          ncol = 4, nrow = 3)
+
+#Save the combined variable boxplots page
+ggexport(allvarplots, filename = "Data/Future/Visualize/boxplots/allvariables_timetrends_boxplots_future.png",
+          width = 1800, height = 1500)
+
+    
+###############################################
+load("Data/Future/DataProcessing/df/fulldata_future.rda")
+#Load the needed packages (install first if necessary)
+library(ggplot2) #data visualization
+library(ggpubr)#To arrange ggplots on a page
+library(stringr)#String detection
+library(tidyverse) #Datatable manipulation (all functions)
+library(dotwhisker) #relabel predictors
+library(stargazer) #Create stargazer tables
+library(clubSandwich) #For coeftest
+#Perform Natural Model for Comparison
+data_natural<-fulldata_future %>% 
+  select(FIPS, Year, ASDCode, ERSCode,
+         insect_planted, pland_crops, natural_crops_ed, mna_crops, largefarm_planted,
+         soysmallgrain_planted, corn_planted, fruitveg_planted,
+         msidi, SDI) %>% 
+    filter(!Year==2002)%>% #Only 3 years of data
+  na.omit() %>% #8939 observations (match crops_3yrs and diversity)
+  mutate_at(scale, .vars=vars(-FIPS, -Year, -ERSCode, -ASDCode, -insect_planted)) %>%  #Scale by subtracting column mean and dividing by column SD
+    rename(Insecticide=insect_planted,
+         PercentCrop=pland_crops,
+         NaturalCropEdge=natural_crops_ed,
+         MeanCropArea=mna_crops,
+         LargeFarms=largefarm_planted,
+         SoyGrains=soysmallgrain_planted,
+         Corn=corn_planted,
+         FruitVeg=fruitveg_planted,
+         LandDiversity=msidi,
+         CropDiversity=SDI)
+
+
+lm_natural<-lm(Insecticide~PercentCrop+NaturalCropEdge+MeanCropArea+LargeFarms+
+                  SoyGrains+Corn+FruitVeg+LandDiversity+CropDiversity+
+                  factor(Year)+factor(ASDCode), data=data_natural)
+df_natural<-broom::tidy(lm_natural) %>% 
+  mutate(model="natural") %>% 
+  dplyr::filter(!stringr::str_detect(term, "(Intercept)"),
+                !stringr::str_detect(term, "factor"))
+df_coef_natural<-lm_natural %>% 
+  clubSandwich::coef_test(vcov = "CR2", cluster = data_natural$ASDCode, test = "Satterthwaite") %>% 
+  tibble::rownames_to_column(var = "term") %>% 
+  rename(estimate=beta, std.error=SE, statistic=tstat, p.value=p_Satt) %>% 
+  dplyr::mutate(model="natural") %>% 
+  dplyr::filter(!stringr::str_detect(term, "(Intercept)"),
+                !stringr::str_detect(term, "factor"))
+vif_natural<-rownames_to_column(as.data.frame(car::vif(lm_natural)), "term") %>% 
+    dplyr::mutate(model="natural") 
+
+#Plot diversity on x and coefficient on y with SD facet by term
+#Relabel predictors
+natural_plot_df <- df_coef_natural %>%
+  relabel_predictors(c(PercentCrop = "Percent Cropland",
+                       NaturalCropEdge= "Natural Crop Edge Density",
+                       MeanCropArea = "Avg. Crop Area",
+                       LargeFarms = " Proportion Large Farm",
+                       SoyGrains= "Proportion Soy & Grains",
+                       Corn= "Proportion Corn",
+                       FruitVeg= "Proportion Fruit & Veg",
+                       LandDiversity= "Landscape Diversity",
+                       CropDiversity="Cropland Diversity"))
+natural_compare<-ggplot2::ggplot(natural_plot_df, aes(y=fct_rev(as_factor(term)))) +
+  geom_errorbarh(aes(xmax = estimate + (1.96*std.error), xmin = estimate - (1.96*std.error)),
+                height=0.3, size=1, colour="royalblue")+
+  geom_point(aes(x=estimate), size=2, colour="royalblue")+
+  geom_vline(xintercept = 0, colour = "grey60", linetype = 2) +
+  theme_bw() + ylab("")+xlab("Coefficient Estimate")+
+  theme(text = element_text(size = 20))
+
+  ggexport(natural_compare, filename = "Data/Future/Visualize/boxwhisker/natural.png",
+           width = 900, height = 800)
+  
+  
+  df_coef_natural<-lm_natural %>% 
+  clubSandwich::coef_test(vcov = "CR2", cluster = data_natural$ASDCode, test = "Satterthwaite")
+  
+  #Natural
+stargazer(lm_natural, omit=c("ASDCode","Year"), 
+          type = 'text', out = 'Data/Future/Visualize/stargazer/natural_table.txt',
+          covariate.labels=c("Percent Cropland", "Natural Crop Edge Density", "Average Crop Area", "Proportion Large Farms", 
+                             "Proportion soybeans and small grains", "Proportion corn", "Proportion fruit and vegetables",
+                             "Landscape Diversity", "Cropland Diversity"),
+          omit.stat=c("LL","ser","f"), 
+          se = list(df_coef_natural[,2]),
+          p=list(df_coef_natural[,5]))
+
+#Save future datasets as future in order to combine
+lm_natural_future<-lm_natural
+df_coef_natural_future<-df_coef_natural
+
+#Combine stargazer with old results
+load("Data/Analysis/models/lm_natural.Rda")
+load("Data/Analysis/models/df/data_natural.Rda")
+df_coef_natural<-lm_natural %>% 
+  clubSandwich::coef_test(vcov = "CR2", cluster = data_natural$ASDCode, test = "Satterthwaite")
+
+#Compare
+  #Natural
+stargazer(lm_natural, lm_natural_future, omit=c("ASDCode","Year"), 
+          type = 'text', out = 'Data/Future/Visualize/stargazer/natural_table_comparewithpresent.txt',
+          covariate.labels=c("Percent Cropland", "Natural Crop Edge Density", "Average Crop Area", "Proportion Large Farms", 
+                             "Proportion soybeans and small grains", "Proportion corn", "Proportion fruit and vegetables",
+                             "Landscape Diversity", "Cropland Diversity"),
+          omit.stat=c("LL","ser","f"), 
+          se = list(df_coef_natural[,2],df_coef_natural_future[,2]),
+          p=list(df_coef_natural[,5],df_coef_natural_future[,5]),
+          column.labels=c("Present NLCD", "Forecast NLCD"), model.numbers=FALSE)
+
+    
+    
+```
+
+
+
+### Test with 5 years of data
+But only create lm_test on it to try to figure out best model?
+
+```{r}
+
+#Read in the NLCD files and rbind (works for now-only files are 2006, 2011, 2016-change later if nessary)
+  file_names <- dir("Data/Future/DataProcessing/nlcd", pattern = ".csv", full.names = TRUE) #files located per year
+  nlcd <- do.call(rbind,lapply(file_names,readr::read_csv))
+
+
+#Change years to match those in the other datasets so can combine by FIPS and years
+  #2001 to 2002, 2006 to 2007, 2011 to 2012, and 2016 to 2017
+  nlcd$Year[nlcd$Year==1996] <- 1997
+  nlcd$Year[nlcd$Year==2001] <- 2002
+  nlcd$Year[nlcd$Year==2006] <- 2007
+  nlcd$Year[nlcd$Year==2011] <- 2012
+  nlcd$Year[nlcd$Year==2016] <- 2017
+
+#Write final nlcd data to be used in combination with other dataframes
+  write_csv(nlcd, "Data/Future/DataProcessing/df/nlcd_5yrs.csv")
+  
+#Read in nlcd
+nlcd<-read_csv("Data/Future/DataProcessing/df/nlcd_5yrs.csv")
+
+#Read in other datasets from dataprocessing to create comparable fulldata_future dataset
+    coa<-read_csv("Data/DataProcessing/df/coa.csv")
+    cdl<-read_csv("Data/DataProcessing/df/cdl.csv")
+    #Read in ERS file, to be combined with other data as is
+    ERS<-readxl::read_xls("Data/DataProcessing/ERS/ERSRegions_To_Counties.xls")
+    ERS<-ERS[,1:3]
+    colnames(ERS)<-c("FIPS", "ERSCode", "ERSName")
+    #Read in ASD file, to be combined with the other data as is
+    ASD<-readr::read_csv("Data/DataProcessing/ASD/ASD_County_Crosswalk.csv") %>% 
+      select(statecountyfips, StateASD)
+    colnames(ASD)<-c("FIPS", "ASDCode")
+
+
+#Make FIPS numeric for nlcd to match with other datasets
+nlcd$FIPS<-as.numeric(nlcd$FIPS)
+    
+#Make fulldata_future
+    #List and merge three datasets by the unique combination of FIPS and Year Values
+fulldata<-list(coa, cdl, nlcd) %>% 
+  reduce(full_join, by=c("FIPS", "Year"))
+
+#Merge with ERS and ASD by just FIPS
+fulldata<-list(fulldata, ERS, ASD) %>% 
+  reduce(full_join, by=c("FIPS"))
+
+
+#Drop the 9 VA counties 51515, 51530, 51580, 51595, 51600, 51610, 51678,51685, 51720 
+  #that had NA in CDL and that are essentially within other counties
+fulldata<-fulldata %>%
+  filter(!(FIPS==51515)&!(FIPS==51530)&!(FIPS==51580)&!(FIPS==51595)&!(FIPS==51600)&
+           !(FIPS==51610)&!(FIPS==51678)&!(FIPS==51685)&!(FIPS==51720))
+
+#Use 2017 county area to fill all other year county area so standardized per FIPS
+  fulldata<-fulldata %>% 
+    dplyr::group_by(FIPS) %>% 
+    arrange(desc(Year)) %>% 
+    dplyr::mutate(countyarea=countyarea[1]) %>% 
+    arrange(FIPS) %>% 
+    dplyr::ungroup()
+
+fulldata<-fulldata %>% 
+  dplyr::mutate(cropintensity=harvcrop/((pland_crops/100)*countyarea)) %>% 
+  dplyr::mutate(natural_crops_ed=tel_naturalcrops_nc/(countyarea*0.4046856422)) %>% #meters shared edge per hectare county area
+  dplyr::mutate(forest_crops_ed=tel_forestcrop_fc/(countyarea*0.4046856422)) %>% 
+  dplyr::mutate(shrubgrass_crops_ed=tel_shrubgrasscrop_sgc/(countyarea*0.4046856422))
+
+#Replace infinite values with NA for regression 
+  fulldata$cropintensity[sapply(fulldata$cropintensity, is.infinite)]<-NA
+  fulldata$natural_crops_ed[sapply(fulldata$natural_crops_ed, is.infinite)]<-NA
+  
+#If harvcrop or pland_crops is 0 then make cropintensity 0 
+  fulldata$cropintensity<- ifelse(fulldata$harvcrop==0, 0, fulldata$cropintensity)
+  fulldata$cropintensity<- ifelse(fulldata$pland_crops==0, 0, fulldata$cropintensity)
+  
+#Remove rows with NA value for year
+  fulldata<-fulldata[!is.na(fulldata$Year),]
+  
+#Name as fulldata_future
+  fulldata_5yrs<-fulldata
+    
+#Write fulldata to df folder as all data pulled together
+    write_csv(fulldata_5yrs, "Data/Future/DataProcessing/df/fulldata_5yrs.csv")
+    save(fulldata_5yrs, file = "Data/Future/DataProcessing/df/fulldata_5yrs.rda")
+
+
+###############################################
+load("Data/Future/DataProcessing/df/fulldata_5yrs.rda")
+#Load the needed packages (install first if necessary)
+library(ggplot2) #data visualization
+library(ggpubr)#To arrange ggplots on a page
+library(stringr)#String detection
+library(tidyverse) #Datatable manipulation (all functions)
+library(dotwhisker) #relabel predictors
+library(stargazer) #Create stargazer tables
+library(clubSandwich) #For coeftest
+#Perform different Models for Comparison
+data_5yrs<-fulldata_5yrs %>% 
+  select(FIPS, Year, ASDCode, ERSCode,
+         insect_planted, pland_crops, harv_county, ed_crops, natural_crops_ed, mna_crops, largefarm_planted,
+         soysmallgrain_planted, corn_planted, fruitveg_planted,pland_natural,
+         msidi) %>% #Got rid of SDI for 5 years
+  filter(harv_county>=0.01) %>% 
+  na.omit() %>% 
+    mutate(pland_c_n=pland_crops/pland_natural) %>% 
+  mutate_at(scale, .vars=vars(-FIPS, -Year, -ERSCode, -ASDCode, -insect_planted)) %>%  #Scale by subtracting column mean and dividing by column SD
+    rename(Insecticide=insect_planted,
+         PercentCrop=pland_crops,
+         HarvestedCrop=harv_county,
+         CropEdge=ed_crops,
+         NaturalCropEdge=natural_crops_ed,
+         MeanCropArea=mna_crops,
+         LargeFarms=largefarm_planted,
+         SoyGrains=soysmallgrain_planted,
+         Corn=corn_planted,
+         FruitVeg=fruitveg_planted,
+         LandDiversity=msidi)
+
+
+lm_5yrs<-lm(Insecticide~PercentCrop+LargeFarms+
+                  SoyGrains+Corn+FruitVeg+
+                  factor(Year)+factor(ASDCode), data=data_5yrs)
+car::vif(lm_5yrs) #NaturalCropEdge decreases VIF correlation by a lot, even if ed_crops had barely higher AIC/R2
+summary(lm_5yrs)$r.squared
+summary(lm_5yrs)$adj.r.squared
+stats::AIC(lm_5yrs)
+stats::nobs(lm_5yrs)
+
+stargazer::stargazer(lm_5yrs, type="text", omit=c("ASDCode","Year"),
+                     out="Data/Future/Visualize/test/test.txt",
+                     omit.stat=c("LL","ser","f"))
+
+```
+
+

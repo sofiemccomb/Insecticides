@@ -110,32 +110,46 @@
                 corngrain, cornsill, oat, barley, wheat, soybeans, fruitnut, veg) %>% 
                 purrr::reduce(full_join, by=c("FIPS", "Year"))
 
-#Fix dataset issues
-    #Fill in missing county area data for 1997 with 2002 values (assume same) 
-    coa<-mergelist %>% #Arrange data so that 1997 and 2002 are next to each other for each FIPS
-      dplyr::select(FIPS, everything()) %>% 
-      dplyr::arrange(FIPS)
-    #Fill in 1997 rows with 2002 values using na.locf function (Generic function for replacing each NA with the most recent non-NA prior to it)
-    coa$countyarea<-zoo::na.locf(coa$countyarea) 
+    
+#Use 2017 county area to fill all other year county area so standardized per FIPS
+coa<-mergelist %>%
+  dplyr::group_by(FIPS) %>%
+  arrange(desc(Year)) %>%
+  dplyr::mutate(countyarea=countyarea[1]) %>%
+  arrange(FIPS) %>%
+  dplyr::ungroup()
+    
+# #Fix dataset issues (earlier version to do this)
+#     #Fill in missing county area data for 1997 with 2002 values (assume same) 
+#     coa<-mergelist %>% #Arrange data so that 1997 and 2002 are next to each other for each FIPS
+#       dplyr::select(FIPS, everything()) %>% 
+#       dplyr::arrange(FIPS)
+#     #Fill in 1997 rows with 2002 values using na.locf function (Generic function for replacing each NA with the most recent non-NA prior to it)
+#     coa$countyarea<-zoo::na.locf(coa$countyarea) 
 
-    #Change all NA values to 0 under assumption that NA for acre values are close to 0 (no NA for FIPS, Year, or county area) in order to perform analyses
-      #For income all values (non-NA) seemingly accounted for, except 1997 which is missing them all (excluded in analysis)
-    coa[is.na(coa)] <- 0
+    #Need to get rid of NA so that can do math
+    #Remove rows where harvcrop or insecticides are NA (not useful measurements)
+    #Make rest of NA 0 (so can add across crops wtihout getting NA, etc.-other measurements not influencing as much)
+    coa_noNA<-coa %>% 
+      filter(!is.na(harvcrop),
+             !is.na(insecticides))
+    coa_noNA[is.na(coa_noNA)] <- 0
+    #Influencing results too much if harvested crop or insecticides are 0 when they are not actually measured
+    #Other ones should not be as big of an influence- insecticides used even when only NLCD and need harvested as based of total planted also in NLCD (crop fail is small-0 less important)
+    #Need 0s for the rest otherwise cannot add otgether the columns-would ignore a lot of data
 
 #Create combined columns desired for analysis and remove unnecessary base columns
-    coa_df<-coa %>%
-      dplyr::mutate(totalplanted=harvcrop+cropnotharv,
-             largefarms=farms_500+farms_1000,
-             soy_smallgrains=soybeans+oat+wheat+barley,
-             corn=corngrain+cornsill,
-             fruitveg=fruitnut+veg) %>% 
-      dplyr::select(-c(cropnotharv, farms_500, farms_1000,
+    coa_df<-coa_noNA %>%
+      dplyr::mutate(totalplanted=harvcrop+cropfail,
+                    totalag=harvcrop+cropnotharv,
+                    largefarms=farms_500+farms_1000,
+                    soy_smallgrains=soybeans+oat+wheat+barley,
+                    corn=corngrain+cornsill,
+                    fruitveg=fruitnut+veg) %>% 
+      dplyr::select(-c(farms_500, farms_1000,
                 soybeans, oat,wheat,barley,corngrain,cornsill,fruitnut,veg))
 
-#Fix more dataset issues
-    #If harvested cropland is 0 (NA/not reported), then set total planted to 0, otherwise total planted is just crop not harvested value (introduces inaccuracies)
-    coa_df$totalplanted<- ifelse(coa_df$harvcrop ==0, coa_df$harvcrop, coa_df$totalplanted)
-
+#Fix more dataset issue
     #Add column of total planted in hectares 
     coa_df$totalplanted_hectares<-coa_df$totalplanted/2.471
 
@@ -175,19 +189,36 @@
 
 
 #Calculate needed ratios for regressions
-    final_coa<-coa_df[c(1,2,3,10,4,5,11,6,7,8,9,12,13,14,15,16)] %>%
+    final_coa<-coa_df %>%
       dplyr::arrange(FIPS) %>% 
-      dplyr::mutate(insect_planted=insecticides/totalplanted,
-             harv_county=harvcrop/countyarea,
-             soysmallgrain_planted=soy_smallgrains/totalplanted,
-             corn_planted=corn/totalplanted,
-             fruitveg_planted=fruitveg/totalplanted,
-             income_planted=income_inflated/totalplanted_hectares,
-             largefarm_planted=largefarms/totalplanted,
-             irrigate_planted=irrigate/totalplanted)
+    dplyr::mutate(insect_planted=insecticides/totalplanted,
+                  insect_ag=insecticides/totalag,
+                  harv_county=harvcrop/countyarea,
+                  largefarm_planted=largefarms/totalplanted,
+                  largefarm_ag=largefarms/totalag,
+                  soysmallgrain_planted=soy_smallgrains/totalplanted,
+                  corn_planted=corn/totalplanted,
+                  fruitveg_planted=fruitveg/totalplanted,
+                  irrigate_planted=irrigate/totalplanted,
+                  income_planted=income_inflated/totalplanted_hectares) %>% 
+      dplyr::mutate(planted_county=totalplanted/countyarea,
+                    insect_harv=insecticides/harvcrop,
+                    largefarm_harv=largefarms/harvcrop,
+                    soysmallgrain_harv=soy_smallgrains/harvcrop,
+                    corn_harv=corn/harvcrop,
+                    fruitveg_harv=fruitveg/harvcrop)
 
-#Remove NA, Inf, and NaN caused by dividing by zero for total planted
-    final_coa[sapply(final_coa, is.infinite)]<-0
+#Drop counties with changed official county borders, etc. issues (same as Larsen 2015 paper)
+    finalcoa<-final_coa %>%
+      filter(!(FIPS>=51200 & FIPS<=52000)) %>% #VA counties
+      filter(!(FIPS>=2000 & FIPS<3000)) %>% #AK
+      filter(!(FIPS>=15000 & FIPS<16000)) %>% #HI
+      filter(!(FIPS==08001)&!(FIPS==08013)&!(FIPS==08059)&!(FIPS==08014)&!(FIPS==08123)&
+               !(FIPS==30113)&!(FIPS==30031)&!(FIPS==30067)&!(FIPS==08031)&
+               !(FIPS==24031)&!(FIPS==24033)&!(FIPS==37031)&!(FIPS==37049)&
+               !(FIPS==12045)&!(FIPS==12037)&!(FIPS==11001)&!(FIPS==24510)&
+               !(FIPS==29510)&!(FIPS==24510)&!(FIPS==12025)&!(FIPS==12086)) #Counties with changing borders
+
 
 #Write final Census of Ag Dataframe to be used in combination with other dataframes
-    write_csv(final_coa, "Data/DataProcessing/df/coa.csv")
+    write_csv(finalcoa, "Data/DataProcessing/df/coa.csv")
