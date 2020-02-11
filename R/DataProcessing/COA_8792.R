@@ -121,7 +121,7 @@ for (i in coa_names_xlsx){
 #Get FIPS codes to add in FIPS column
 FIPS_df<-as.data.frame(HavAcres500_999) %>% 
   janitor::clean_names() %>% 
-  select(fips_code)
+  dplyr::select(fips_code)
 
 #Clean function to clean-up wanted dataframes into same format  
   clean_function_xlsx<-function(z){

@@ -17,7 +17,13 @@ options(scipen=999) #no scientific notation (all)
 
 
 #Climate data
-clim<-read_csv("Data/DataProcessing/Climate/DAILY_IDW200_365_COA_1987_2012.csv")
+clim_87_12<-read_csv("Data/DataProcessing/Climate/DAILY_IDW200_365_COA_1987_2012.csv")
+clim_17<-readr::read_csv("Data/DataProcessing/Climate/DAILY_WEATHER_IDW200_365_2017.csv")
+
+#Drop snow so same exact col order to rbind (and do not need snow)
+clim_87_12<-clim_87_12 %>% dplyr::select(-snow)
+clim_17<-clim_17 %>% dplyr::select(-snow)
+clim<-rbind(clim_87_12, clim_17)
 
 #Average mean temperature for Jan, Apr, Jul, Oct per month-year-FIPS
 avg_month_temp<-clim %>% 
@@ -25,10 +31,10 @@ avg_month_temp<-clim %>%
   summarize(mean = mean(tmean)) %>% 
   ungroup()
 
-Jan_avg_mean<-avg_month_temp %>% filter(month==1) %>% select(-month) %>% rename(Jan_tmean_avg=mean)
-Apr_avg_mean<-avg_month_temp %>% filter(month==4) %>% select(-month) %>% rename(Apr_tmean_avg=mean)
-Jul_avg_mean<-avg_month_temp %>% filter(month==7) %>% select(-month) %>% rename(Jul_tmean_avg=mean)
-Oct_avg_mean<-avg_month_temp %>% filter(month==10) %>% select(-month) %>% rename(Oct_tmean_avg=mean)
+Jan_avg_mean<-avg_month_temp %>% filter(month==1) %>% dplyr::select(-month) %>% rename(Jan_tmean_avg=mean)
+Apr_avg_mean<-avg_month_temp %>% filter(month==4) %>% dplyr::select(-month) %>% rename(Apr_tmean_avg=mean)
+Jul_avg_mean<-avg_month_temp %>% filter(month==7) %>% dplyr::select(-month) %>% rename(Jul_tmean_avg=mean)
+Oct_avg_mean<-avg_month_temp %>% filter(month==10) %>% dplyr::select(-month) %>% rename(Oct_tmean_avg=mean)
 
 month_avg_mean<-list(Jan_avg_mean,Apr_avg_mean,Jul_avg_mean,Oct_avg_mean) %>% 
   purrr::reduce(full_join, by=c("fips", "year"))
@@ -44,11 +50,17 @@ annual_precip<-sum_month_precip %>%
   summarize(annual_prcp=sum(monthsum)) %>% 
   ungroup()
 
+#Convert to mm
+annual_precip$annual_prcp<-annual_precip$annual_prcp*25.4 #convert to mm
+
 growingseason_precip<-sum_month_precip %>% 
   filter(month==10|month==11|month==12|month==1|month==2|month==3|month==4) %>% 
   group_by(fips, year) %>% 
   summarize(growingseason_prcp=sum(monthsum)) %>% 
   ungroup()
+
+#Convert to mm
+growingseason_precip$growingseason_prcp<-growingseason_precip$growingseason_prcp*25.4 #convert to mm
 
 precip<-list(annual_precip,growingseason_precip) %>% 
   purrr::reduce(full_join, by=c("fips", "year"))
@@ -96,9 +108,9 @@ avg_min_temp_bymonth<-clim %>%
   summarize(mean = mean(tmin)) %>% 
   ungroup()
 
-Jan_avg_tmin<-avg_min_temp_bymonth %>% filter(month==1) %>% select(-month) %>% rename(Jan_tmin_avg=mean)
-Feb_avg_tmin<-avg_min_temp_bymonth %>% filter(month==2) %>% select(-month) %>% rename(Feb_tmin_avg=mean)
-Mar_avg_tmin<-avg_min_temp_bymonth %>% filter(month==3) %>% select(-month) %>% rename(Mar_tmin_avg=mean)
+Jan_avg_tmin<-avg_min_temp_bymonth %>% filter(month==1) %>% dplyr::select(-month) %>% rename(Jan_tmin_avg=mean)
+Feb_avg_tmin<-avg_min_temp_bymonth %>% filter(month==2) %>% dplyr::select(-month) %>% rename(Feb_tmin_avg=mean)
+Mar_avg_tmin<-avg_min_temp_bymonth %>% filter(month==3) %>% dplyr::select(-month) %>% rename(Mar_tmin_avg=mean)
 
 
 winter_tmin_avg<-list(avg_min_temp_3month,avg_min_temp_2month,Jan_avg_tmin,Feb_avg_tmin,Mar_avg_tmin) %>% 
@@ -122,9 +134,9 @@ avg_max_temp_bymonth<-clim %>%
   summarize(mean = mean(tmax)) %>% 
   ungroup()
 
-Jan_avg_tmax<-avg_max_temp_bymonth %>% filter(month==1) %>% select(-month) %>% rename(Jan_tmax_avg=mean)
-Feb_avg_tmax<-avg_max_temp_bymonth %>% filter(month==2) %>% select(-month) %>% rename(Feb_tmax_avg=mean)
-Mar_avg_tmax<-avg_max_temp_bymonth %>% filter(month==3) %>% select(-month) %>% rename(Mar_tmax_avg=mean)
+Jan_avg_tmax<-avg_max_temp_bymonth %>% filter(month==1) %>% dplyr::select(-month) %>% rename(Jan_tmax_avg=mean)
+Feb_avg_tmax<-avg_max_temp_bymonth %>% filter(month==2) %>% dplyr::select(-month) %>% rename(Feb_tmax_avg=mean)
+Mar_avg_tmax<-avg_max_temp_bymonth %>% filter(month==3) %>% dplyr::select(-month) %>% rename(Mar_tmax_avg=mean)
 
 
 winter_tmax_avg<-list(avg_max_temp_3month,avg_max_temp_2month,Jan_avg_tmax,Feb_avg_tmax,Mar_avg_tmax) %>% 
@@ -144,9 +156,9 @@ avg_max_temp_bymonth_summer<-clim %>%
   summarize(mean = mean(tmax)) %>% 
   ungroup()
 
-Jun_avg_tmax<-avg_max_temp_bymonth_summer %>% filter(month==6) %>% select(-month) %>% rename(Jun_tmax_avg=mean)
-Jul_avg_tmax<-avg_max_temp_bymonth_summer %>% filter(month==7) %>% select(-month) %>% rename(Jul_tmax_avg=mean)
-Aug_avg_tmax<-avg_max_temp_bymonth_summer %>% filter(month==8) %>% select(-month) %>% rename(Aug_tmax_avg=mean)
+Jun_avg_tmax<-avg_max_temp_bymonth_summer %>% filter(month==6) %>% dplyr::select(-month) %>% rename(Jun_tmax_avg=mean)
+Jul_avg_tmax<-avg_max_temp_bymonth_summer %>% filter(month==7) %>% dplyr::select(-month) %>% rename(Jul_tmax_avg=mean)
+Aug_avg_tmax<-avg_max_temp_bymonth_summer %>% filter(month==8) %>% dplyr::select(-month) %>% rename(Aug_tmax_avg=mean)
 
 
 summer_tmax_avg<-list(avg_max_temp_summer,Jun_avg_tmax,Jul_avg_tmax,Aug_avg_tmax) %>% 

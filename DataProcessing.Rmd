@@ -73,7 +73,7 @@ source ("R/DataProcessing/COA_8792.R")
 #Also combine and save version of COA 1997-2017 and 1987-1992
   #Read in 
   coa_9717<-readr::read_csv("Data/DataProcessing/df/coa.csv") %>% 
-    select(-income, -fertilizer, -irrigate, -totalplanted_hectares, 
+    dplyr::select(-income, -fertilizer, -irrigate, -totalplanted_hectares, 
            -income_inflated, -irrigate_planted, -income_planted) #remove columns that are different
   coa_8792<-readr::read_csv("Data/DataProcessing/df/coa_8792.csv")
   
@@ -186,7 +186,7 @@ Daily climate data from Olivier.
 
 
 Variables to examine: Mean Monthly Temperature (January, April, July, October), Precipitation (Annual, Growing Season),
-  Frost Days (annual days with tmin<=32 F), GDD (annual DD based on 50 and 90 F)
+  Frost Days (annual days with tmin<=32 F), GDD (annual DD based on 50 and 90 F); convert precipitation from in to mm
 
 
 ```{r}
@@ -196,6 +196,8 @@ source ("R/DataProcessing/Climate.R")
 
 ```
 
+
+Future climate data from Chelsa- calculated using climate_CHELSEA.R script on R server; need to include here eventually and rename to climate_chelsa
 
 
 #########################################
@@ -215,10 +217,10 @@ nlcd<-readr::read_csv("Data/DataProcessing/df/nlcd.csv")
 LCP<-read_csv("Data/DataProcessing/df/LargeCropPatch.csv") %>% 
   mutate(FIPS=as.numeric(FIPS))
 ERS<-readxl::read_xls("Data/DataProcessing/ERS/ERSRegions_To_Counties.xls") %>% 
-  select(1:3)
+  dplyr::select(1:3)
   colnames(ERS)<-c("FIPS", "ERSCode", "ERSName")
 ASD<-readr::read_csv("Data/DataProcessing/ASD/ASD_County_Crosswalk.csv") %>% 
-  select(statecountyfips, StateASD)
+  dplyr::select(statecountyfips, StateASD)
   colnames(ASD)<-c("FIPS", "ASDCode")
 climate<-readr::read_csv("Data/DataProcessing/df/climate.csv") %>% 
   dplyr::rename(FIPS=fips, Year=year)
@@ -261,10 +263,10 @@ fulldata<-fulldata %>% #Changed edge metrics to use CountyArea instead (similar 
 ```
 
 
-###Forecast NLCD Data for Present (2001-2016)
-
+###Forecast NLCD Data for Present (2001-2016) 
 Prepared future nlcd data with fragstats calculations on the online R server for faster processing and memory storage. The R scripts used can be found under the server, and the R scripts can be found stored under the R/Future folder as NF_Future and NLCD_Future. NF_Future is the function created to do all the computation, and NLCD_Future carries our the function for the different desired years and gets the NLCD in an appropriate spreadsheet format. Will just put in the saved csvs below, where they were transfered from the online server.
 
+***Possibly need to change present climate data here with forecasted current climate data (just for model testing)
 
 ```{r}
 
@@ -300,10 +302,10 @@ coa<-readr::read_csv("Data/DataProcessing/df/coa.csv")
 cdl<-readr::read_csv("Data/DataProcessing/df/cdl.csv")
 
 ERS<-readxl::read_xls("Data/DataProcessing/ERS/ERSRegions_To_Counties.xls") %>% 
-  select(1:3)
+  dplyr::select(1:3)
   colnames(ERS)<-c("FIPS", "ERSCode", "ERSName")
 ASD<-readr::read_csv("Data/DataProcessing/ASD/ASD_County_Crosswalk.csv") %>% 
-  select(statecountyfips, StateASD)
+  dplyr::select(statecountyfips, StateASD)
   colnames(ASD)<-c("FIPS", "ASDCode")
 climate<-readr::read_csv("Data/DataProcessing/df/climate.csv") %>% 
   dplyr::rename(FIPS=fips, Year=year)
@@ -351,10 +353,96 @@ fulldata<-fulldata %>% #Changed edge metrics to use CountyArea instead (similar 
 ```
 
 
+#Foreast Data: All 4 current years, 2 scenarios (NLCD B1,A2)-using forecasted current chelsa data
+
+Prepared future nlcd data with fragstats calculations on the online R server for faster processing and memory storage. The R scripts used can be found under the server, and the R scripts can be found stored under the R/Future folder as Final_NLCD_Future. 
+
+
+```{r}
+
+
+#############################
+  
+#Read in forecast nlcd (include LCP)
+nlcd<-read_csv("Data/DataProcessing/Future/df/nlcd_forecast_current.csv") %>% 
+  mutate(FIPS=as.numeric(FIPS))
+   
+   #Change years to match those in the other datasets so can combine by FIPS and years
+  #2001 to 2002, 2006 to 2007, 2011 to 2012, and 2016 to 2017
+  nlcd$Year[nlcd$Year==2001] <- 2002
+  nlcd$Year[nlcd$Year==2006] <- 2007
+  nlcd$Year[nlcd$Year==2011] <- 2012
+  nlcd$Year[nlcd$Year==2016] <- 2017
+
+
+#Read in the other datasets
+coa<-readr::read_csv("Data/DataProcessing/df/coa.csv")
+cdl<-readr::read_csv("Data/DataProcessing/df/cdl.csv")
+
+ERS<-readxl::read_xls("Data/DataProcessing/ERS/ERSRegions_To_Counties.xls") %>% 
+  dplyr::select(1:3)
+  colnames(ERS)<-c("FIPS", "ERSCode", "ERSName")
+ASD<-readr::read_csv("Data/DataProcessing/ASD/ASD_County_Crosswalk.csv") %>% 
+  dplyr::select(statecountyfips, StateASD)
+  colnames(ASD)<-c("FIPS", "ASDCode")
+climate<-readr::read_csv("Data/DataProcessing/Climate/forecastedclimate.csv") %>% 
+  filter(Scenario=="Current") %>% 
+  dplyr::mutate(FIPS=as.numeric(FIPS)) %>% 
+  dplyr::select(-Scenario)
+  
+#List and merge datasets by the unique combination of FIPS and Year Values
+fulldata<-list(coa, cdl, nlcd) %>% 
+  reduce(full_join, by=c("FIPS", "Year"))
+
+#Merge with ERS and ASD by just FIPS
+fulldata<-list(fulldata, ERS, ASD) %>% 
+  reduce(full_join, by=c("FIPS"))
+
+#Merge climate with fulldata-ensure climate repeats for all years and scenarios of fulldata
+fulldata<-list(fulldata, climate) %>% 
+  reduce(full_join, by="FIPS")
+#52603 rows
+
+
+#Drop counties with changed official county borders, etc. issues (same as Larsen 2015 paper)
+fulldata<-fulldata %>%
+  filter(!(FIPS>=51200 & FIPS<=52000)) %>% #VA counties
+  filter(!(FIPS>=2000 & FIPS<3000)) %>% #AK
+  filter(!(FIPS>=15000 & FIPS<16000)) %>% #HI
+  filter(!(FIPS==08001)&!(FIPS==08013)&!(FIPS==08059)&!(FIPS==08014)&!(FIPS==08123)&
+           !(FIPS==30113)&!(FIPS==30031)&!(FIPS==30067)&!(FIPS==08031)&
+           !(FIPS==24031)&!(FIPS==24033)&!(FIPS==37031)&!(FIPS==37049)&
+           !(FIPS==12045)&!(FIPS==12037)&!(FIPS==11001)&!(FIPS==24510)&
+           !(FIPS==29510)&!(FIPS==24510)&!(FIPS==12025)&!(FIPS==12086)) #Counties with changing borders
+
+
+#Add in columns for natural-crops edge density
+  #Have shared edge length between natural land and crops divided by county area (ag)
+fulldata<-fulldata %>% #Changed edge metrics to use CountyArea instead (similar output but slighlty more accurate)
+    dplyr::mutate(natural_crops_ed=tel_naturalcrops_nc/CountyArea_ha) %>% #meters shared edge per hectare county area
+    dplyr::mutate(forest_crops_ed=tel_forestcrop_fc/CountyArea_ha) %>% 
+    dplyr::mutate(shrubgrass_crops_ed=tel_shrubgrasscrop_sgc/CountyArea_ha)
+
+  
+#Remove rows with NA value for year
+  fulldata<-fulldata[!is.na(fulldata$Year),]
+
+  #Name as fulldata_forecast
+  fulldata_forecast_allscenarios<-fulldata %>% 
+    dplyr::select(FIPS, Year, Scenario, everything()) %>% #Put these rows before all others
+    filter(Scenario=="B1"|Scenario=="A2") #A1B and B2 are not close enough to RCP; B1=4.5 and A2=8.5
+    
+#Write fulldata_forecast to df folder as all data pulled together
+    write_csv(fulldata_forecast_allscenarios, "Data/DataProcessing/Future/df/fulldata_forecast_allscenarios.csv")
+    save(fulldata_forecast_allscenarios, file = "Data/DataProcessing/Future/df/fulldata_forecast_allscenarios.rda")
+    
+
+```
 
 
 
-### Forecast Data: 2050, all scenarios (B1, B2, A1B, A2)
+
+### Forecast Data: 2050, all scenarios (B1, A2); chelsea climate
 
 ```{r}
 
@@ -364,16 +452,27 @@ nlcd_2050<-read_csv("Data/DataProcessing/Future/df/nlcd_2050.csv") %>%
 
 #Read in the other datasets (ERS and ASD)
 ERS<-readxl::read_xls("Data/DataProcessing/ERS/ERSRegions_To_Counties.xls") %>% 
-  select(1:3)
+  dplyr::select(1:3)
   colnames(ERS)<-c("FIPS", "ERSCode", "ERSName")
 ASD<-readr::read_csv("Data/DataProcessing/ASD/ASD_County_Crosswalk.csv") %>% 
-  select(statecountyfips, StateASD)
+  dplyr::select(statecountyfips, StateASD)
   colnames(ASD)<-c("FIPS", "ASDCode")
-
 
 #Merge nlcd with ERS and ASD by just FIPS
 fulldata<-list(nlcd_2050, ERS, ASD) %>% 
-  reduce(full_join, by=c("FIPS"))
+  reduce(full_join, by=c("FIPS")) %>% 
+   filter(Scenario=="B1"|Scenario=="A2") #only keep B1 and A2
+
+climate<-readr::read_csv("Data/DataProcessing/Climate/forecastedclimate.csv") %>% 
+  filter(Scenario!="Current") %>% 
+  dplyr::mutate(FIPS=as.numeric(FIPS))
+
+climate$Scenario<-ifelse(climate$Scenario=="RCP45", "B1", ifelse(climate$Scenario=="RCP85", "A2", climate$Scenario))
+  #Switch SRES to RCP
+
+#Merge fulldata with climate
+fulldata<-list(fulldata, climate) %>% 
+  reduce(full_join, by=c("FIPS", "Scenario"))
 
 #Drop counties with changed official county borders, etc. issues (same as Larsen 2015 paper)
 fulldata<-fulldata %>%

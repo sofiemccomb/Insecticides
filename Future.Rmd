@@ -8,9 +8,6 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-This R Markdown document will perform the panel linear model regressions for determining the relationship of agricultural and landscape variables on insectide use in the year 2050.
-
-Twoways (individual and time) fixed effects models will be run for each regression. Individual will be represented by ASDCode and time will be represented by year.
 
  
 ## Data Preparation
@@ -23,18 +20,17 @@ This section will load the necessary packages and data
 
 #Load the needed packages (install first if necessary)
 library(tidyverse) #Datatable manipulation
-library(purrr) #For reduce function using full_join
-library(car) # For calculating variance inflation factors (vif)
-library(broom) #Convert statistical analysis into df
-library(reshape2)#For wide to long data format
-library(clubSandwich) #for coeftest (cluster robust standard errors)
+library(survey) #Lincom svycontrast
+library(survival) #Lincom uwintrostats regress
+library(sandwich)#Lincom uwintrostats regress
+library(uwIntroStats)#Lincom uwintrostats regress
 
 #Set options
 options(scipen=999) #no scientific notation (all)
 
 ```
 
-
+### Crop covariates and visualizations of future data
 #### Load Data
 
 Loading the fulldata_forecast and fulldata_2050.
@@ -48,9 +44,7 @@ load("Data/DataProcessing/df/fulldata_coa_allyrs.rda") #Load crop all years data
 
 ```
 
-
-
-### Linear Extrapolation of Crop Covariates to 2050
+#### Linear Extrapolation of Crop Covariates to 2050
 
 ```{r}
 
@@ -231,11 +225,11 @@ Using acreage
 ```
 
 
-### Visualizations
+#### Visualizations
 
-##Boxplots of variables
+#### Boxplots of variables
 
-### Boxplots of time trends of covariates
+#### Boxplots of time trends of covariates
 
 Creating boxplots showing the values for each of the variables being considered in any of the regression models, across the years being considered. Using the fulldata datasets (loaded in the variable_time_boxplots.R script sourced below).
 
@@ -290,7 +284,7 @@ ggpubr::ggexport(allvarplots, filename = "Data/Future/boxplots/covariates_timetr
 ```
 
 
-###Just COA
+####Just COA
 
 ```{r}
 #Function to create boxplot visualizations
@@ -339,13 +333,15 @@ ggpubr::ggexport(allvarplots, filename = "Data/Future/boxplots/covariates_timetr
 
 
 
+
 ###Combine different dataframes for forecasting
 
-Combine fulldata, fulldata2050, and crop covariates
+Combine fulldata, fulldata2050, and crop covariates; and forecasted cliamte from chelsa
 
 ```{r}
 
 load("Data/DataProcessing/df/fulldata.rda")
+load("Data/DataProcessing/Future/df/fulldata_forecast_allscenarios.rda")
 load("Data/DataProcessing/Future/df/fulldata_2050.rda")
 coa_2050<-readr::read_csv("Data/Future/df/crop_covariates_2050_proportions.csv")
 
@@ -355,160 +351,593 @@ coa_2050<-readr::read_csv("Data/Future/df/crop_covariates_2050_proportions.csv")
 
 ###Forecasting
 
-####Create model
+
+#### NLCD and CoA variables 
+
 ```{r}
 
-#Create model
-data_model_na<-fulldata %>% 
-  dplyr::select(FIPS, Year, ASDCode, ERSCode,
-         insect_planted, pland_crops, Prop_LCP, 
-         soysmallgrain_planted, corn_planted, fruitveg_planted,
-         natural_crops_ed, msidi) %>% 
-  na.omit() %>% 
-   dplyr::select(FIPS, Year, ASDCode, ERSCode,
-         insect_planted, pland_crops, Prop_LCP, 
-         soysmallgrain_planted, corn_planted, fruitveg_planted,
-         natural_crops_ed, msidi) 
-dat_fips<- data_model_na%>%
-    group_by(FIPS) %>%
-    summarise(count=n()) %>% 
-  filter(count==4) %>% 
-  dplyr::select(FIPS) #Get FIPS FOR BALANCED PANEL
-data_model<-left_join(dat_fips, data_model_na)%>%#Balanced the panel, 10604 observations
-  mutate_at(scale, .vars=vars(-FIPS, -Year, -ERSCode, -ASDCode, -insect_planted)) %>%  #Scale by subtracting column mean and dividing by column SD
-    rename(Insecticide=insect_planted,
-         PercentCrop=pland_crops,
-         LargeCropPatches=Prop_LCP,
-         SoyGrains=soysmallgrain_planted,
-         Corn=corn_planted,
-         FruitVeg=fruitveg_planted,
-         NaturalCropEdge=natural_crops_ed,
-         LandDiversity=msidi)
+#########################
+#Wrangle current timeseries data for model input
+  data_model_na<-fulldata %>% 
+    dplyr::select(FIPS, Year, ASDCode, ERSCode,
+           insect_planted, pland_crops, Prop_LCP, 
+           soysmallgrain_planted, corn_planted, fruitveg_planted,
+           natural_crops_ed, msidi) %>% #Select variables
+    na.omit() #Get rid of rows with NAS
+  dat_fips<- data_model_na%>% #Get the FIPS for a balanced panel (all 4 yrs) for current data
+      group_by(FIPS) %>%
+      summarise(count=n()) %>% 
+    filter(count==4) %>% 
+    dplyr::select(FIPS) #FIPS available for all 4 years of current data for model
 
 
-lm_model<-lm(Insecticide~PercentCrop+LargeCropPatches+
+#########################
+#Combine and wrangle forecasted current and future data
+  #Prepare forecast current data (needed rows)
+  data_model_forecast<-fulldata_forecast_allscenarios %>% 
+    dplyr::select(FIPS, Year, Scenario, ASDCode, ERSCode,
+           pland_crops, Prop_LCP, 
+           soysmallgrain_planted, corn_planted, fruitveg_planted,
+           natural_crops_ed, msidi)
+  
+  #Combine all 2050 data (forecasted and crop covariates)
+  data_model_2050<-full_join(fulldata_2050, coa_2050[,1:5], by=c("FIPS", "Year"))%>% 
+    dplyr::rename(soysmallgrain_planted=SoySmallGrain, 
+           corn_planted=Corn,
+           fruitveg_planted=FruitVeg) %>% 
+    dplyr::select(FIPS, Year, Scenario, ASDCode, ERSCode,
+           pland_crops, Prop_LCP, 
+           soysmallgrain_planted, corn_planted, fruitveg_planted,
+           natural_crops_ed, msidi)
+  
+  #Combine forecast current and 2050 data
+  data_model_na_forecasted<-rbind(data_model_forecast, data_model_2050) %>% 
+    arrange(FIPS, Year, Scenario)%>% 
+    na.omit() #omit rows with NA values
+  
+  dat_fips_forecast<- data_model_na_forecasted%>% #Get fips for balanced panel for forecasted data
+      group_by(FIPS) %>%
+      summarise(count=n()) %>% 
+    filter(count==10) %>% #Have all current years and future year for each scenario- so 5 years *4 scenarios=20
+    dplyr::select(FIPS) #Get FIPS FOR BALANCED PANEL
+
+
+###############################3
+#Match FIPS for balanced panels across timeseries and forecasted (same FIPS used for both)
+
+  dat_fips_final<-inner_join(dat_fips, dat_fips_forecast, by="FIPS")
+
+
+###############################
+#Set final dataset for timeseries and forecast based on matching FIPS, and for just harvested data
+  #Final dataset for model
+  data_model<-left_join(dat_fips_final, data_model_na, by="FIPS")%>%#Balanced the panel, 10144 observations
+      dplyr::rename(Insecticide=insect_planted,
+           PercentCrop=pland_crops,
+           LargeCropPatches=Prop_LCP,
+           SoyGrains=soysmallgrain_planted,
+           Corn=corn_planted,
+           FruitVeg=fruitveg_planted,
+           NaturalCropEdge=natural_crops_ed,
+           LandDiversity=msidi)
+
+  #Final combined forecasted
+  data_model_future<-left_join(dat_fips_final, data_model_na_forecasted, by="FIPS")%>%
+      dplyr::rename(PercentCrop=pland_crops,
+           LargeCropPatches=Prop_LCP,
+           SoyGrains=soysmallgrain_planted,
+           Corn=corn_planted,
+           FruitVeg=fruitveg_planted,
+           NaturalCropEdge=natural_crops_ed,
+           LandDiversity=msidi)
+
+  #Final data for just totalplanted to weight forecasted data, with balanced fips
+  data_model_planted<-left_join(dat_fips_final, fulldata_forecast_allscenarios, by="FIPS") %>% #Original values (all should have totalplanted if insecticides); only for matching FIPS
+    dplyr::filter(Scenario=="B1") %>% #Filter for only one scenario since totalplanted value same across scenarios
+    dplyr::select(FIPS, Year, totalplanted) %>% 
+    dplyr::mutate(totalplantedha=totalplanted/2.471) %>% 
+    dplyr::select(-totalplanted)
+  
+  
+###################################
+#Create linear model with finalized current timeseries data
+   #Create model
+    lm_model<-lm(Insecticide~PercentCrop+LargeCropPatches+
                  SoyGrains+Corn+FruitVeg+
                  NaturalCropEdge+LandDiversity+
-                 factor(ASDCode), data=data_model)
+                factor(Year)+factor(ASDCode), data=data_model)
+
+###################################
+#Sum of differences
+  scenarios<-c("B1", "A2") #Scenarios to loop through
+  for(i in scenarios){
+    #Subset data by scenario and arrange in order
+      data_model_scenario<-data_model_future %>% filter(Scenario==i) %>% 
+        arrange(FIPS, Year, Scenario)
+    
+    #Get 2050 and current data as separate dataframes in order to subtract, and save ID
+      df_2050<-data_model_scenario %>% filter(Year==2050) %>% dplyr::select(-Year)#2050 data
+      ID<-df_2050 %>% dplyr::select(FIPS, Scenario, ASDCode, ERSCode)#Identifiers for both 2050 and 2017 because ordered
+      df_2050<-df_2050%>% dplyr::select(-FIPS, -Scenario, -ASDCode, -ERSCode)#Remove ID from 2050
+      df_current<-data_model_scenario %>% filter(Year==2017) %>% #2017 data, use latest discrete date for comparison
+        dplyr::select(-Year,-FIPS, -Scenario, -ASDCode, -ERSCode)#Remove ID
+  
+    #Subtract 2050-current and add back identifiers
+    df_diff<-df_2050-df_current#2050-current
+    df_diff_ID<-cbind(ID, df_diff)#Add identifiers back in
+    
+    #Weight differences by totalplanted ha and put into kha,then sum across FIPS by year and average across years
+      df_diff_planted<-full_join(df_diff_ID, data_model_planted, by="FIPS") %>% #Add in totalplanted by year by county
+        dplyr::mutate(PercentCrop_weighted=PercentCrop*totalplantedha/1000, #Weight by ha, and put into kha
+                    LargeCropPatches_weighted=LargeCropPatches*totalplantedha/1000,
+                    SoyGrains_weighted=SoyGrains*totalplantedha/1000,
+                    Corn_weighted=Corn*totalplantedha/1000,
+                    FruitVeg_weighted=FruitVeg*totalplantedha/1000,
+                    NaturalCropEdge_weighted=NaturalCropEdge*totalplantedha/1000,
+                    LandDiversity_weighted=LandDiversity*totalplantedha/1000) %>% 
+      dplyr::select(Year, PercentCrop_weighted, LargeCropPatches_weighted,SoyGrains_weighted,
+                    Corn_weighted,FruitVeg_weighted,NaturalCropEdge_weighted,LandDiversity_weighted) %>%  
+      group_by(Year) %>% #Group by year in order to summarie across all FIPS
+      summarize_all(.funs=c(sum="sum")) %>% #Summarize across all US (across FIPS)
+      ungroup() %>% #Ungroup by year
+      dplyr::select(-Year) %>% #Remove year column
+      summarize_all(.funs=c(mean="mean")) #Average across the years
+    colnames(df_diff_planted)<-c("PercentCrop_diff", "LargeCropPatches_diff", "SoyGrains_diff", "Corn_diff",
+                                 "FruitVeg_diff", "NaturalCropEdge_diff", "LandDiversity_diff") #Rename columns
+ 
+   #Dataframe of values for linear extrapolation: lm coefficient value x difference value for each covariate
+   coef_df<-df_diff_planted %>% 
+    dplyr::mutate(PercentCrop=lm_model$coefficients[2]*PercentCrop_diff,
+                  LargeCropPatches=lm_model$coefficients[3]*LargeCropPatches_diff,
+                  SoyGrains=lm_model$coefficients[4]*SoyGrains_diff,
+                  Corn=lm_model$coefficients[5]*Corn_diff,
+                  FruitVeg=lm_model$coefficients[6]*FruitVeg_diff,
+                  NaturalCropEdge=lm_model$coefficients[7]*NaturalCropEdge_diff,
+                  LandDiversity=lm_model$coefficients[8]*LandDiversity_diff) %>% 
+    dplyr::select(PercentCrop,LargeCropPatches, SoyGrains, Corn, FruitVeg, NaturalCropEdge,LandDiversity)
+  #Have values as numeric value to call from
+   coef_mat<-as.numeric(coef_df)
+  
+  #Put value into svycontrast (similar to lincom) to estimate change in insecticide hectares
+  result<-survey::svycontrast(stat=lm_model, contrasts=c(PercentCrop=coef_mat[1],
+                                                 LargeCropPatches=coef_mat[2],
+                                                 SoyGrains=coef_mat[3],
+                                                 Corn=coef_mat[4],
+                                                 FruitVeg=coef_mat[5],
+                                                 NaturalCropEdge=coef_mat[6],
+                                                 LandDiversity=coef_mat[7]))
+  print(i)#Print scenario
+  print(result)
+
+  #Below not working correctly-figure out how to change
+coefs<-c(paste0("PercentCrop=", coef_mat[1]), paste0("LargeCropPatches=",coef_mat[2]),
+  paste0("SoyGrains=",coef_mat[3]), paste0("Corn=",coef_mat[4]), paste0("FruitVeg=",coef_mat[5]),
+  paste0("NaturalCropEdge=",coef_mat[6]), paste0("LandDiversity=",coef_mat[7]))
+
+  #glht function
+  glht_mod <- glht(model=lm_model, linfct = coefs)
+  # print(summary(glht_mod))
+
+#If for just value
+  # coefs<-c(paste0("PercentCrop=", df_diff_planted[1]), paste0("LargeCropPatches=",df_diff_planted[2]),
+  #   paste0("SoyGrains=",df_diff_planted[3]), paste0("Corn=",df_diff_planted[4]), paste0("FruitVeg=",df_diff_planted[5]),
+  #   paste0("NaturalCropEdge=",df_diff_planted[6]), paste0("LandDiversity=",df_diff_planted[7]))
+  # #Somehow doesn't change the estimates?
+  
+  
+  
+  
+library(survival)
+library(sandwich)
+library(uwIntroStats)
+  #Create regress model (similar to lm)
+  testReg <- regress ("mean", Insecticide~PercentCrop+LargeCropPatches+
+                 SoyGrains+Corn+FruitVeg+
+                 NaturalCropEdge+LandDiversity+
+                factor(Year)+factor(ASDCode), data=data_model)
+  
+  #Dataframe of coefficients and other model factors
+  coef_lincom<-as.data.frame(testReg$coefficients)
+  
+  #Dataframe of just model estimates
+  coef_estimates<-coef_lincom %>% dplyr::select(Estimate)
+  
+  #Change coefficient values for covariates to desired values (leave factors)
+  coef_estimates["PercentCrop", "Estimate"]<-coef_df$PercentCrop
+  coef_estimates["LargeCropPatches", "Estimate"]<-coef_df$LargeCropPatches
+  coef_estimates["Corn", "Estimate"]<-coef_df$Corn
+  coef_estimates["FruitVeg", "Estimate"]<-coef_df$FruitVeg
+  coef_estimates["NaturalCropEdge", "Estimate"]<-coef_df$NaturalCropEdge
+  coef_estimates["LandDiversity", "Estimate"]<-coef_df$LandDiversity
+  
+  #Run lincom on lm_model testReg using updated coefficients coef_estimates
+  coef_est_mat<-as.numeric(coef_estimates$Estimate) #numeric vector of estimates
+  lincom_results<-capture.output(uwIntroStats::lincom(reg=testReg, comb=coef_est_mat))
+  final_lincom_colnames<-lincom_results[4] #Estimate, Std.Err, 95%L, 95%H, T, p
+  final_lincom_values<-lincom_results[5]
+  strsplit_lincom<-as.data.frame(strsplit(final_lincom_values, " "))
+  
+  if(i=="A1B"){
+      #Grab values
+      Estimate<-as.numeric(as.character(strsplit_lincom[4, 1]))
+      SE<-as.numeric(as.character(strsplit_lincom[10, 1]))
+      CI_95L<-as.numeric(as.character(strsplit_lincom[11, 1]))
+      CI_95H<-as.numeric(as.character(strsplit_lincom[12, 1]))
+      Tval<-as.numeric(as.character(strsplit_lincom[13, 1]))
+      pval<-as.character(strsplit_lincom[14, 1])
+      psig<-as.character(strsplit_lincom[15, 1])
+      
+      #Create final dataframe of values (and ensure not factors)
+      lincom_vals<-as.data.frame(cbind(Estimate, SE, CI_95L, CI_95H, Tval, pval, psig)) %>% 
+        mutate(Estimate=as.numeric(as.character(Estimate)),
+               SE=as.numeric(as.character(SE)),
+               CI_95L=as.numeric(as.character(CI_95L)),
+               CI_95H=as.numeric(as.character(CI_95H)),
+               Tval=as.numeric(as.character(Tval)),
+               pval=as.character(pval),
+               psig=as.character(psig))
+      print(lincom_vals)
+  
+  } else if (i=="B1"|i=="B2"|i=="A2"){
+         #Grab values
+      Estimate<-as.numeric(as.character(strsplit_lincom[3, 1]))
+      SE<-as.numeric(as.character(strsplit_lincom[8, 1]))
+      CI_95L<-as.numeric(as.character(strsplit_lincom[9, 1]))
+      CI_95H<-as.numeric(as.character(strsplit_lincom[10, 1]))
+      Tval<-as.numeric(as.character(strsplit_lincom[11, 1]))
+      pval<-as.character(strsplit_lincom[12, 1])
+      psig<-as.character(strsplit_lincom[13, 1])
+      
+      #Create final dataframe of values (and ensure not factors)
+      lincom_vals<-as.data.frame(cbind(Estimate, SE, CI_95L, CI_95H, Tval, pval, psig)) %>% 
+        mutate(Estimate=as.numeric(as.character(Estimate)),
+               SE=as.numeric(as.character(SE)),
+               CI_95L=as.numeric(as.character(CI_95L)),
+               CI_95H=as.numeric(as.character(CI_95H)),
+               Tval=as.numeric(as.character(Tval)),
+               pval=as.character(pval),
+               psig=as.character(psig))
+      print(lincom_vals)
+  }else
+    print("Issue with Lincom")
+  
+  
+}#End for loop
+
 
 ```
 
 
-#### Sum of differences
 
-Generate differences: Future 2050 one scenario values per FIPS minus the values per FIPS per year for current
 
-Divide by 100,000 to get y in hundred k of HA?-Currently in acreage?-Currently ignore step because proportions
 
-Take mean across the years per FIPS
+#### All variables
 
 ```{r}
 
-#currently just do for one scenario-but eventually iterate through scenarios
-fulldata_2050_B1<-fulldata_2050 %>% filter(Scenario=="B1")
-coa_2050_df<-coa_2050[,1:5] %>%
-  dplyr::rename(soysmallgrain_planted=SoySmallGrain, 
-         corn_planted=Corn,
-         fruitveg_planted=FruitVeg)
-#Create model
-data_model_na_2050<-full_join(fulldata_2050_B1, coa_2050_df) %>% 
-  dplyr::select(FIPS, Year, ASDCode, ERSCode,
-         pland_crops, Prop_LCP, 
-         soysmallgrain_planted, corn_planted, fruitveg_planted,
-         natural_crops_ed, msidi) %>% #same except no insect_planted
-  na.omit() %>% 
-   dplyr::select(FIPS, Year, ASDCode, ERSCode,
-         pland_crops, Prop_LCP, 
-         soysmallgrain_planted, corn_planted, fruitveg_planted,
-         natural_crops_ed, msidi) 
-data_model_2050<-left_join(dat_fips, data_model_na_2050)%>%#Match to data_model FIPS so same FIPS compared
-  mutate_at(scale, .vars=vars(-FIPS, -Year, -ERSCode, -ASDCode)) %>%  #Scale by subtracting column mean and dividing by column SD
-    rename(PercentCrop=pland_crops,
-         LargeCropPatches=Prop_LCP,
-         SoyGrains=soysmallgrain_planted,
-         Corn=corn_planted,
-         FruitVeg=fruitveg_planted,
-         NaturalCropEdge=natural_crops_ed,
-         LandDiversity=msidi)
+#########################
+#Wrangle current timeseries data for model input
+  data_model_na<-fulldata %>% 
+    dplyr::select(FIPS, Year, ASDCode, ERSCode,
+           insect_planted, pland_crops, Prop_LCP, 
+           soysmallgrain_planted, corn_planted, fruitveg_planted,
+           natural_crops_ed, msidi, 
+           annual_prcp, 
+           Jan_tmean_avg, Apr_tmean_avg, Jul_tmean_avg, Oct_tmean_avg,
+           annual_GDD, tmin_avg_JanFebMar, tmax_avg_JunJulAug) %>% #Select variables
+    na.omit() #Get rid of rows with NAS
+  dat_fips<- data_model_na%>% #Get the FIPS for a balanced panel (all 4 yrs) for current data
+      group_by(FIPS) %>%
+      summarise(count=n()) %>% 
+    filter(count==4) %>% 
+    dplyr::select(FIPS) #FIPS available for all 4 years of current data for model
+
+
+#########################
+#Combine and wrangle forecasted current and future data
+  #Prepare forecast current data (needed rows)
+  data_model_forecast<-fulldata_forecast_allscenarios %>% 
+    dplyr::select(FIPS, Year, Scenario, ASDCode, ERSCode,
+           pland_crops, Prop_LCP, 
+           soysmallgrain_planted, corn_planted, fruitveg_planted,
+           natural_crops_ed, msidi,
+           annprcp, 
+           tmean_Jan, tmean_Apr, tmean_Jul, tmean_Oct,
+           tminavg, tmaxavg, annualGDD)
+  
+
+  
+  #Combine all 2050 data (forecasted and crop covariates)
+  data_model_2050<-full_join(fulldata_2050, coa_2050[,1:5], by=c("FIPS", "Year"))%>% 
+    dplyr::rename(soysmallgrain_planted=SoySmallGrain, 
+           corn_planted=Corn,
+           fruitveg_planted=FruitVeg) %>% 
+    dplyr::select(FIPS, Year, Scenario, ASDCode, ERSCode,
+           pland_crops, Prop_LCP, 
+           soysmallgrain_planted, corn_planted, fruitveg_planted,
+           natural_crops_ed, msidi,
+           annprcp, 
+           tmean_Jan, tmean_Apr, tmean_Jul, tmean_Oct,
+           tminavg, tmaxavg, annualGDD)
+  
+  #Combine forecast current and 2050 data
+  data_model_na_forecasted<-rbind(data_model_forecast, data_model_2050) %>% 
+    arrange(FIPS, Year, Scenario)%>% 
+    na.omit() #omit rows with NA values
+  
+  dat_fips_forecast<- data_model_na_forecasted%>% #Get fips for balanced panel for forecasted data
+      group_by(FIPS) %>%
+      summarise(count=n()) %>% 
+     filter(count==10) %>% 
+    dplyr::select(FIPS) #Get FIPS FOR BALANCED PANEL
+
+
+###############################3
+#Match FIPS for balanced panels across timeseries and forecasted (same FIPS used for both)
+
+  dat_fips_final<-inner_join(dat_fips, dat_fips_forecast, by="FIPS")
+
+
+###############################
+#Set final dataset for timeseries and forecast based on matching FIPS, and for just harvested data
+  #Final dataset for model
+  data_model<-left_join(dat_fips_final, data_model_na, by="FIPS")%>%#Balanced the panel, 10144 observations
+      dplyr::rename(Insecticide=insect_planted,
+           PercentCrop=pland_crops,
+           LargeCropPatches=Prop_LCP,
+           SoyGrains=soysmallgrain_planted,
+           Corn=corn_planted,
+           FruitVeg=fruitveg_planted,
+           NaturalCropEdge=natural_crops_ed,
+           LandDiversity=msidi,
+           AnnualPrecipitation=annual_prcp, 
+           AnnualGDD=annual_GDD,
+           JanuaryTmean=Jan_tmean_avg,
+           AprilTmean=Apr_tmean_avg,
+           JulyTmean=Jul_tmean_avg,
+           OctoberTmean=Oct_tmean_avg,
+           WinterTminavg=tmin_avg_JanFebMar, 
+           SummerTmaxavg=tmax_avg_JunJulAug)
+
+  #Final combined forecasted
+  data_model_future<-left_join(dat_fips_final, data_model_na_forecasted, by="FIPS")%>%
+      dplyr::rename(PercentCrop=pland_crops,
+           LargeCropPatches=Prop_LCP,
+           SoyGrains=soysmallgrain_planted,
+           Corn=corn_planted,
+           FruitVeg=fruitveg_planted,
+           NaturalCropEdge=natural_crops_ed,
+           LandDiversity=msidi,
+           AnnualPrecipitation=annprcp, 
+           AnnualGDD=annualGDD,
+           JanuaryTmean=tmean_Jan,
+           AprilTmean=tmean_Apr,
+           JulyTmean=tmean_Jul,
+           OctoberTmean=tmean_Oct,
+           WinterTminavg=tminavg, 
+           SummerTmaxavg=tmaxavg)
+  
+  #Final data for just totalplanted to weight forecasted data, with balanced fips
+  data_model_planted<-left_join(dat_fips_final, fulldata_forecast_allscenarios, by="FIPS") %>% #Original values (all should have totalplanted if insecticides); only for matching FIPS
+    dplyr::filter(Scenario=="B1") %>% #Filter for only one scenario since totalplanted value same across scenarios
+    dplyr::select(FIPS, Year, totalplanted) %>% 
+    dplyr::mutate(totalplantedha=totalplanted/2.471) %>% 
+    dplyr::select(-totalplanted)
+  
+  
+###################################
+#Create linear model with finalized current timeseries data
+   #Create model
+    lm_model<-lm(Insecticide~PercentCrop+LargeCropPatches+
+                 SoyGrains+Corn+FruitVeg+
+                 NaturalCropEdge+LandDiversity+
+                   AnnualPrecipitation+ AnnualGDD+
+                   JanuaryTmean+AprilTmean+JulyTmean+OctoberTmean+
+                   WinterTminavg+SummerTmaxavg+
+                factor(Year)+factor(ASDCode), data=data_model)
+
+###################################
+#Sum of differences
+  scenarios<-c("B1", "A2") #Scenarios to loop through
+  for(i in scenarios){
+    #Subset data by scenario and arrange in order
+      data_model_scenario<-data_model_future %>% filter(Scenario==i) %>% 
+        arrange(FIPS, Year, Scenario)
+    
+    #Get 2050 and current data as separate dataframes in order to subtract, and save ID
+      df_2050<-data_model_scenario %>% filter(Year==2050) %>% dplyr::select(-Year)#2050 data
+      ID<-df_2050 %>% dplyr::select(FIPS, Scenario, ASDCode, ERSCode)#Identifiers for both 2050 and 2017 because ordered
+      df_2050<-df_2050%>% dplyr::select(-FIPS, -Scenario, -ASDCode, -ERSCode)#Remove ID from 2050
+      df_current<-data_model_scenario %>% filter(Year==2017) %>% #2017 data, use latest discrete date for comparison
+        dplyr::select(-Year,-FIPS, -Scenario, -ASDCode, -ERSCode)#Remove ID
+  
+    #Subtract 2050-current and add back identifiers
+    df_diff<-df_2050-df_current#2050-current
+    df_diff_ID<-cbind(ID, df_diff)#Add identifiers back in
+    
+    #Weight differences by totalplanted ha and put into kha,then sum across FIPS by year and average across years
+      df_diff_planted<-full_join(df_diff_ID, data_model_planted, by="FIPS") %>% #Add in totalplanted by year by county
+        dplyr::mutate(PercentCrop_weighted=PercentCrop*totalplantedha/1000, #Weight by ha, and put into kha
+                    LargeCropPatches_weighted=LargeCropPatches*totalplantedha/1000,
+                    SoyGrains_weighted=SoyGrains*totalplantedha/1000,
+                    Corn_weighted=Corn*totalplantedha/1000,
+                    FruitVeg_weighted=FruitVeg*totalplantedha/1000,
+                    NaturalCropEdge_weighted=NaturalCropEdge*totalplantedha/1000,
+                    LandDiversity_weighted=LandDiversity*totalplantedha/1000,
+                    AnnualPrecipitation_weighted=AnnualPrecipitation*totalplantedha/1000,
+                    AnnualGDD_weighted=AnnualGDD*totalplantedha/1000,
+                    JanuaryTmean_weighted=JanuaryTmean*totalplantedha/1000,
+                    AprilTmean_weighted=AprilTmean*totalplantedha/1000,
+                    JulyTmean_weighted=JulyTmean*totalplantedha/1000,
+                    OctoberTmean_weighted=OctoberTmean*totalplantedha/1000,
+                    WinterTminavg_weighted=WinterTminavg*totalplantedha/1000,
+                    SummerTmaxavg_weighted=SummerTmaxavg*totalplantedha/1000) %>% 
+      dplyr::select(Year, PercentCrop_weighted, LargeCropPatches_weighted,SoyGrains_weighted,
+                    Corn_weighted,FruitVeg_weighted,NaturalCropEdge_weighted,LandDiversity_weighted,
+                    AnnualPrecipitation_weighted, AnnualGDD_weighted, 
+                    JanuaryTmean_weighted,AprilTmean_weighted,JulyTmean_weighted,OctoberTmean_weighted,
+                    WinterTminavg_weighted,SummerTmaxavg_weighted) %>%  
+      group_by(Year) %>% #Group by year in order to summarie across all FIPS
+      summarize_all(.funs=c(sum="sum")) %>% #Summarize across all US (across FIPS)
+      ungroup() %>% #Ungroup by year
+      dplyr::select(-Year) %>% #Remove year column
+      summarize_all(.funs=c(mean="mean")) #Average across the years
+    colnames(df_diff_planted)<-c("PercentCrop_diff", "LargeCropPatches_diff", "SoyGrains_diff", "Corn_diff",
+                                 "FruitVeg_diff", "NaturalCropEdge_diff", "LandDiversity_diff",
+                                 "AnnualPrecipitation_diff", "AnnualGDD_diff",
+                                 "JanuaryTmean_diff", "AprilTmean_diff", "JulyTmean_diff", "OctoberTmean_diff",
+                                 "WinterTminavg_diff", "SummerTmaxavg_diff") #Rename columns
+ 
+   #Dataframe of values for linear extrapolation: lm coefficient value x difference value for each covariate
+   coef_df<-df_diff_planted %>% 
+    dplyr::mutate(PercentCrop=lm_model$coefficients[2]*PercentCrop_diff,
+                  LargeCropPatches=lm_model$coefficients[3]*LargeCropPatches_diff,
+                  SoyGrains=lm_model$coefficients[4]*SoyGrains_diff,
+                  Corn=lm_model$coefficients[5]*Corn_diff,
+                  FruitVeg=lm_model$coefficients[6]*FruitVeg_diff,
+                  NaturalCropEdge=lm_model$coefficients[7]*NaturalCropEdge_diff,
+                  LandDiversity=lm_model$coefficients[8]*LandDiversity_diff,
+                  AnnualPrecipitation=lm_model$coefficients[9]*AnnualPrecipitation_diff,
+                  AnnualGDD=lm_model$coefficients[10]*AnnualGDD_diff,
+                  JanuaryTmean=lm_model$coefficients[11]*JanuaryTmean_diff,
+                  AprilTmean=lm_model$coefficients[12]*AprilTmean_diff,
+                  JulyTmean=lm_model$coefficients[13]*JulyTmean_diff,
+                  OctoberTmean=lm_model$coefficients[14]*OctoberTmean_diff,
+                  WinterTminavg=lm_model$coefficients[15]*WinterTminavg_diff,
+                  SummerTmaxavg=lm_model$coefficients[16]*SummerTmaxavg_diff) %>% 
+    dplyr::select(PercentCrop,LargeCropPatches, SoyGrains, Corn, FruitVeg, NaturalCropEdge,LandDiversity,
+                  AnnualPrecipitation,AnnualGDD,JanuaryTmean,AprilTmean,JulyTmean,OctoberTmean,
+                  WinterTminavg,SummerTmaxavg)
+  #Have values as numeric value to call from
+   coef_mat<-as.numeric(coef_df)
+  
+  #Put value into svycontrast (similar to lincom) to estimate change in insecticide hectares
+  result<-survey::svycontrast(stat=lm_model, contrasts=c(PercentCrop=coef_mat[1],
+                                                 LargeCropPatches=coef_mat[2],
+                                                 SoyGrains=coef_mat[3],
+                                                 Corn=coef_mat[4],
+                                                 FruitVeg=coef_mat[5],
+                                                 NaturalCropEdge=coef_mat[6],
+                                                 LandDiversity=coef_mat[7],
+                                                 AnnualPrecipitation=coef_mat[8],
+                                                 AnnualGDD=coef_mat[9],
+                                                 JanuaryTmean=coef_mat[10],
+                                                 AprilTmean=coef_mat[11],
+                                                 JulyTmean=coef_mat[12],
+                                                 OctoberTmean=coef_mat[13],
+                                                 WinterTminavg=coef_mat[14],
+                                                 SummerTmaxavg=coef_mat[15]))
+  print(i)#Print scenario
+  print(result)
+  
+
+  #Create regress model (similar to lm)
+  testReg <- uwIntroStats::regress ("mean", Insecticide~PercentCrop+LargeCropPatches+
+                 SoyGrains+Corn+FruitVeg+
+                 NaturalCropEdge+LandDiversity+
+                   AnnualPrecipitation+ AnnualGDD+
+                   JanuaryTmean+AprilTmean+JulyTmean+OctoberTmean+
+                   WinterTminavg+SummerTmaxavg+
+                factor(Year)+factor(ASDCode), data=data_model)
+  
+  #Dataframe of coefficients and other model factors
+  coef_lincom<-as.data.frame(testReg$coefficients)
+  
+  #Dataframe of just model estimates
+  coef_estimates<-coef_lincom %>% dplyr::select(Estimate)
+  
+  #Change coefficient values for covariates to desired values (leave factors)
+  coef_estimates["PercentCrop", "Estimate"]<-coef_df$PercentCrop
+  coef_estimates["LargeCropPatches", "Estimate"]<-coef_df$LargeCropPatches
+  coef_estimates["Corn", "Estimate"]<-coef_df$Corn
+  coef_estimates["FruitVeg", "Estimate"]<-coef_df$FruitVeg
+  coef_estimates["NaturalCropEdge", "Estimate"]<-coef_df$NaturalCropEdge
+  coef_estimates["LandDiversity", "Estimate"]<-coef_df$LandDiversity
+  coef_estimates["AnnualPrecipitation", "Estimate"]<-coef_df$AnnualPrecipitation
+  coef_estimates["AnnualGDD", "Estimate"]<-coef_df$AnnualGDD
+  coef_estimates["JanuaryTmean", "Estimate"]<-coef_df$JanuaryTmean
+  coef_estimates["AprilTmean", "Estimate"]<-coef_df$AprilTmean
+  coef_estimates["JulyTmean", "Estimate"]<-coef_df$JulyTmean
+  coef_estimates["OctoberTmean", "Estimate"]<-coef_df$OctoberTmean
+  coef_estimates["WinterTminavg", "Estimate"]<-coef_df$WinterTminavg
+  coef_estimates["SummerTmaxavg", "Estimate"]<-coef_df$SummerTmaxavg
+
+  
+  #Run lincom on lm_model testReg using updated coefficients coef_estimates
+  coef_est_mat<-as.numeric(coef_estimates$Estimate) #numeric vector of estimates
+  lincom_results<-capture.output(uwIntroStats::lincom(reg=testReg, comb=coef_est_mat))
+  final_lincom_colnames<-lincom_results[4] #Estimate, Std.Err, 95%L, 95%H, T, p
+  final_lincom_values<-lincom_results[5]
+  strsplit_lincom<-as.data.frame(strsplit(final_lincom_values, " "))
+
+  
+  if(i=="A2"){
+      #Grab values
+      Estimate<-as.numeric(as.character(strsplit_lincom[4, 1]))
+      SE<-as.numeric(as.character(strsplit_lincom[10, 1]))
+      CI_95L<-as.numeric(as.character(strsplit_lincom[11, 1]))
+      CI_95H<-as.numeric(as.character(strsplit_lincom[12, 1]))
+      Tval<-as.numeric(as.character(strsplit_lincom[13, 1]))
+      pval<-as.character(strsplit_lincom[14, 1])
+      psig<-as.character(strsplit_lincom[15, 1])
+
+      #Create final dataframe of values (and ensure not factors)
+      lincom_vals<-as.data.frame(cbind(Estimate, SE, CI_95L, CI_95H, Tval, pval, psig)) %>%
+        mutate(Estimate=as.numeric(as.character(Estimate)),
+               SE=as.numeric(as.character(SE)),
+               CI_95L=as.numeric(as.character(CI_95L)),
+               CI_95H=as.numeric(as.character(CI_95H)),
+               Tval=as.numeric(as.character(Tval)),
+               pval=as.character(pval),
+               psig=as.character(psig))
+      print(lincom_vals)
+
+  } else if (i=="B1"){
+         #Grab values
+      Estimate<-as.numeric(as.character(strsplit_lincom[3, 1]))
+      SE<-as.numeric(as.character(strsplit_lincom[8, 1]))
+      CI_95L<-as.numeric(as.character(strsplit_lincom[9, 1]))
+      CI_95H<-as.numeric(as.character(strsplit_lincom[10, 1]))
+      Tval<-as.numeric(as.character(strsplit_lincom[11, 1]))
+      pval<-as.character(strsplit_lincom[12, 1])
+      psig<-as.character(strsplit_lincom[13, 1])
+
+      #Create final dataframe of values (and ensure not factors)
+      lincom_vals<-as.data.frame(cbind(Estimate, SE, CI_95L, CI_95H, Tval, pval, psig)) %>%
+        mutate(Estimate=as.numeric(as.character(Estimate)),
+               SE=as.numeric(as.character(SE)),
+               CI_95L=as.numeric(as.character(CI_95L)),
+               CI_95H=as.numeric(as.character(CI_95H)),
+               Tval=as.numeric(as.character(Tval)),
+               pval=as.character(pval),
+               psig=as.character(psig))
+      print(lincom_vals)
+  }else
+    print("Issue with Lincom")
+  
+  
+}#End for loop
 
 
 ```
 
 
-
-```{r}
-
-#Generate Differences
-
-# data_model_yr<-data_model %>% filter(Year==2017)
-
-df_2050<-data_model_2050 %>% dplyr::select(-Year, -ASDCode, -ERSCode) %>% arrange(FIPS)
-df_2002<-data_model %>% filter(Year==2002) %>% dplyr::select(-Year, -ASDCode, -ERSCode, -Insecticide) %>% arrange(FIPS)
-df_2007<-data_model %>% filter(Year==2007) %>% dplyr::select(-Year, -ASDCode, -ERSCode, -Insecticide) %>% arrange(FIPS)
-df_2012<-data_model %>% filter(Year==2012) %>% dplyr::select(-Year, -ASDCode, -ERSCode, -Insecticide) %>% arrange(FIPS)
-df_2017<-data_model %>% filter(Year==2017) %>% dplyr::select(-Year, -ASDCode, -ERSCode, -Insecticide) %>% arrange(FIPS)
-
-fips_order<-df_2050$FIPS
-
-#Differences
-df_0250<-df_2050-df_2002 
-df_0250<-df_2050-df_2007
-df_1250<-df_2050-df_2012
-df_1750<-df_2050-df_2017
-
-#Did not take sum of county area because already using proportions (also currenlty not scaling by sd)
-
-#Average across years and add in ASD
-#Read in ASD file, to be combined with the other data as is
-ASD<-readr::read_csv("Data/DataProcessing/ASD/ASD_County_Crosswalk.csv")%>% 
-  dplyr::select(statecountyfips, StateASD)
-  colnames(ASD)<-c("FIPS", "ASDCode")
-
-df_yrs<-(df_0250+df_0250+df_1250+df_1750)/4 
-df_final<-df_yrs %>%
-  dplyr::mutate(FIPS=fips_order) %>% 
-  left_join(ASD, by=c("FIPS"))%>% 
-  dplyr::select(-FIPS) %>% 
-  tbl_df() %>% 
-  mutate_at(scale, .vars=vars(-ASDCode))
+B1 is the global environmental suistabintility with more environmental focus globally;
+A2 is the regionally oriented economic developement with regionslism that is more economic focus;
 
 
-```
+A2 is the divided world while B1 is an integrated ecologically friendly world
 
-
-#### Apply coefficients to sum of differences
-
-```{r}
-
-# lm_model$call
-# 
-# library(biostat3)
-# library(lme4)
-predict_2050<-predict(lm_model, newdata=df_final) %>% 
-  as.data.frame() %>% 
-  dplyr::mutate(FIPS=fips_order)
-# lincom(lm_model, df_final)
-
-# ?lincom
-# #Figure out how to use lincom in R
-# x<-lm_model$coefficients[2]*df_final$PercentCrop+
-# lm_model$coefficients[3]*df_final$LargeCropPatches+
-# lm_model$coefficients[4]*df_final$SoyGrains+
-# lm_model$coefficients[5]*df_final$Corn+
-# lm_model$coefficients[6]*df_final$FruitVeg+
-# lm_model$coefficients[7]*df_final$NaturalCropEdge+
-# lm_model$coefficients[8]*df_final$LandDiversity
-
-# y<-x+lm_model$coefficients[1]
-# Insecticide<-as.data.frame(y) %>% 
-#   mutate(FIPS=fips_order) %>% 
-#   select(FIPS, everything())
+Sohl 2014 paper
+A2-ag land will doulbe in area in the US by 2100; so perhaps less insecticide decrease because much greater ag land increase
+"Quantity of ag land in A1B and A2 scenarios would far surpass any historical extent of ag land use"-
+nearly 3 million km2 of new cropland between 2000 adn 2100 in the A2 scenario-marginal lands
+What IMAGE demanded vs what they actually implemented
 
 
 
-#Add intercept???
-#Deal with factor constants?
 
 
-```
+
+
 

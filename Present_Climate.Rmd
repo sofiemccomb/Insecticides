@@ -975,3 +975,182 @@ vif_model
 
 ```
 
+
+
+###Looking at three different climate var combinations
+
+
+###Model 1
+Census of Ag (Planted crop, large farms, crop covariates) with naturalcropedge and land diversity for 4 years with all significant severity
+
+```{r}
+
+data_model_na_1<-fulldata %>% 
+  dplyr::select(FIPS, Year, ASDCode, ERSCode,
+         insect_planted, planted_county, largefarm_planted, 
+         soysmallgrain_planted, corn_planted, fruitveg_planted,
+         natural_crops_ed, msidi,
+         pland_crops, Prop_LCP,
+         Jan_tmean_avg, Apr_tmean_avg, Jul_tmean_avg, Oct_tmean_avg,
+         annual_prcp, annual_GDD,tmin_avg_JanFebMar,tmax_avg_JunJulAug) %>% 
+  na.omit() %>% 
+    dplyr::select(FIPS, Year, ASDCode, ERSCode,
+         insect_planted, planted_county, largefarm_planted, 
+         soysmallgrain_planted, corn_planted, fruitveg_planted,
+         natural_crops_ed, msidi,
+        Jan_tmean_avg, Apr_tmean_avg, Jul_tmean_avg, Oct_tmean_avg,
+         annual_prcp, annual_GDD,tmin_avg_JanFebMar,tmax_avg_JunJulAug) 
+dat_fips_1<- data_model_na_1%>%
+    group_by(FIPS) %>%
+    summarise(count=n()) %>% 
+  filter(count==3) %>% 
+  dplyr::select(FIPS) #Get FIPS FOR BALANCED PANEL
+data_model_1<-left_join(dat_fips_1, data_model_na_1)%>%#Balanced the panel
+  mutate_at(scale, .vars=vars(-FIPS, -Year, -ERSCode, -ASDCode, -insect_planted)) %>%  #Scale by subtracting column mean and dividing by column SD
+    rename(Insecticide=insect_planted,
+         PlantedCrop=planted_county,
+         LargeFarms=largefarm_planted,
+         SoyGrains=soysmallgrain_planted,
+         Corn=corn_planted,
+         FruitVeg=fruitveg_planted,
+         NaturalCropEdge=natural_crops_ed,
+         LandDiversity=msidi,
+        JanuaryTmean=Jan_tmean_avg,
+         AprilTmean=Apr_tmean_avg,
+         JulyTmean=Jul_tmean_avg,
+         OctoberTmean=Oct_tmean_avg,
+         AnnualPrecipitation=annual_prcp,
+         AnnualGDD=annual_GDD,
+        WinterTminAvg=tmin_avg_JanFebMar,
+         SummerTmaxAvg=tmax_avg_JunJulAug
+         )
+
+
+lm_model_1<-lm(Insecticide~PlantedCrop+LargeFarms+
+                 SoyGrains+Corn+FruitVeg+
+                 NaturalCropEdge+LandDiversity+
+                   AnnualPrecipitation+AnnualGDD+
+                 JanuaryTmean+AprilTmean+JulyTmean+OctoberTmean+
+                  WinterTminAvg+SummerTmaxAvg+
+                 factor(Year)+factor(ASDCode), data=data_model_1)
+df_coef_model_1<-lm_model_1 %>% 
+  clubSandwich::coef_test(vcov = "CR2", cluster = data_model_1$ASDCode, test = "Satterthwaite")
+
+```
+
+
+###Model 2
+Census of Ag (Planted crop, large farms, crop covariates) with naturalcropedge and land diversity for 4 years with all significant severity
+
+```{r}
+
+data_model_na_2<-fulldata %>% 
+  dplyr::select(FIPS, Year, ASDCode, ERSCode,
+         insect_planted, planted_county, largefarm_planted, 
+         soysmallgrain_planted, corn_planted, fruitveg_planted,
+         natural_crops_ed, msidi,
+         pland_crops, Prop_LCP,
+         Jan_tmean_avg, Apr_tmean_avg, Jul_tmean_avg, Oct_tmean_avg,
+         annual_prcp, annual_GDD,tmin_avg_JanFebMar,tmax_avg_JunJulAug) %>% 
+  na.omit() %>% 
+    dplyr::select(FIPS, Year, ASDCode, ERSCode,
+         insect_planted, planted_county, largefarm_planted, 
+         soysmallgrain_planted, corn_planted, fruitveg_planted,
+         natural_crops_ed, msidi,
+         annual_prcp, annual_GDD,tmin_avg_JanFebMar,tmax_avg_JunJulAug) 
+dat_fips_2<- data_model_na_2%>%
+    group_by(FIPS) %>%
+    summarise(count=n()) %>% 
+  filter(count==3) %>% 
+  dplyr::select(FIPS) #Get FIPS FOR BALANCED PANEL
+data_model_2<-left_join(dat_fips_2, data_model_na_2)%>%#Balanced the panel
+  mutate_at(scale, .vars=vars(-FIPS, -Year, -ERSCode, -ASDCode, -insect_planted)) %>%  #Scale by subtracting column mean and dividing by column SD
+    rename(Insecticide=insect_planted,
+         PlantedCrop=planted_county,
+         LargeFarms=largefarm_planted,
+         SoyGrains=soysmallgrain_planted,
+         Corn=corn_planted,
+         FruitVeg=fruitveg_planted,
+         NaturalCropEdge=natural_crops_ed,
+         LandDiversity=msidi,
+         AnnualPrecipitation=annual_prcp,
+         AnnualGDD=annual_GDD,
+         WinterTminAvg=tmin_avg_JanFebMar,
+         SummerTmaxAvg=tmax_avg_JunJulAug
+         )
+
+
+lm_model_2<-lm(Insecticide~PlantedCrop+LargeFarms+
+                 SoyGrains+Corn+FruitVeg+
+                 NaturalCropEdge+LandDiversity+
+                   AnnualPrecipitation+AnnualGDD+
+                 WinterTminAvg+SummerTmaxAvg+
+                 factor(ASDCode)+
+                 factor(Year), data=data_model_2)
+df_coef_model_2<-lm_model_2 %>% 
+  clubSandwich::coef_test(vcov = "CR2", cluster = data_model_2$ASDCode, test = "Satterthwaite")
+
+```
+
+
+###Model 3
+Census of Ag (Planted crop, large farms, crop covariates) with naturalcropedge and land diversity for 4 years with all significant severity
+
+```{r}
+
+data_model_na_3<-fulldata %>% 
+  dplyr::select(FIPS, Year, ASDCode, ERSCode,
+         insect_planted, planted_county, largefarm_planted, 
+         soysmallgrain_planted, corn_planted, fruitveg_planted,
+         natural_crops_ed, msidi,
+         pland_crops, Prop_LCP,
+         Jan_tmean_avg, Apr_tmean_avg, Jul_tmean_avg, Oct_tmean_avg,
+         annual_prcp, annual_GDD,tmin_avg_JanFebMar,tmax_avg_JunJulAug) %>% 
+  na.omit() %>% 
+    dplyr::select(FIPS, Year, ASDCode, ERSCode,
+         insect_planted, planted_county, largefarm_planted, 
+         soysmallgrain_planted, corn_planted, fruitveg_planted,
+         natural_crops_ed, msidi,
+         annual_prcp, annual_GDD) 
+dat_fips_3<- data_model_na_3%>%
+    group_by(FIPS) %>%
+    summarise(count=n()) %>% 
+  filter(count==3) %>% 
+  dplyr::select(FIPS) #Get FIPS FOR BALANCED PANEL
+data_model_3<-left_join(dat_fips_3, data_model_na_3)%>%#Balanced the panel
+  mutate_at(scale, .vars=vars(-FIPS, -Year, -ERSCode, -ASDCode, -insect_planted)) %>%  #Scale by subtracting column mean and dividing by column SD
+    rename(Insecticide=insect_planted,
+         PlantedCrop=planted_county,
+         LargeFarms=largefarm_planted,
+         SoyGrains=soysmallgrain_planted,
+         Corn=corn_planted,
+         FruitVeg=fruitveg_planted,
+         NaturalCropEdge=natural_crops_ed,
+         LandDiversity=msidi,
+         AnnualPrecipitation=annual_prcp,
+         AnnualGDD=annual_GDD
+         )
+
+
+lm_model_3<-lm(Insecticide~PlantedCrop+LargeFarms+
+                 SoyGrains+Corn+FruitVeg+
+                 NaturalCropEdge+LandDiversity+
+                   AnnualPrecipitation+AnnualGDD+
+                 factor(ASDCode)+
+                 factor(Year), data=data_model_3)
+df_coef_model_3<-lm_model_3 %>% 
+  clubSandwich::coef_test(vcov = "CR2", cluster = data_model_3$ASDCode, test = "Satterthwaite")
+
+```
+
+
+stargazer
+
+```{r}
+stargazer::stargazer(lm_model_1, lm_model_2, lm_model_3,
+                     type="text", omit=c("ASDCode","Year"),
+                     out="Data/Present/stargazer/ClimModels_stargazer_test_3models.txt",
+                     omit.stat=c("LL","ser","f"),
+                     se = list(df_coef_model_1[,2],df_coef_model_2[,2],df_coef_model_3[,2]),
+                     p=list(df_coef_model_1[,5],df_coef_model_2[,5],df_coef_model_3[,5]))
+```
