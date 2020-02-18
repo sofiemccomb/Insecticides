@@ -11,6 +11,7 @@ library(zoo) #For na.locf function (COA.R)
 library(janitor) #Clean colnames (CDL.R)
 library(vegan) #Perform diversity calculation (CDL.R)
 library(readxl) #read excel .xlsx (ERS data)
+library(dismo) #biovars
 
 #Set options
 options(scipen=999) #no scientific notation (all)
@@ -164,8 +165,34 @@ Aug_avg_tmax<-avg_max_temp_bymonth_summer %>% filter(month==8) %>% dplyr::select
 summer_tmax_avg<-list(avg_max_temp_summer,Jun_avg_tmax,Jul_avg_tmax,Aug_avg_tmax) %>% 
   purrr::reduce(full_join, by=c("fips", "year"))
 
+
+#Calculate bioclim variables
+avg_month_var<-clim %>% 
+  group_by(fips, year, month) %>% 
+  summarise_at(.vars = vars(prcp,tmin,tmax),
+               .funs = c(mean="mean")) %>% 
+  ungroup()
+
+uniqfips<-unique(avg_month_var$fips)
+uniqyears<-unique(avg_month_var$year)
+bioclimdf<-data.frame()
+for (f in uniqfips){
+  for(y in uniqyears){
+    FIPS<-f
+    Year<-y
+    climdata<-avg_month_var %>% filter(fips==FIPS & year==Year)
+    bioclim<-dismo::biovars(prec=climdata$prcp_mean, tmin=climdata$tmin_mean, tmax = climdata$tmax_mean)
+    bioclim_data<-cbind(FIPS, Year, bioclim)
+    bioclimdf<-rbind(bioclimdf, bioclim_data)
+  }
+}
+
+biovardf<-bioclimdf %>% 
+  dplyr::select(FIPS, Year, bio5, bio6) %>% 
+  dplyr::rename(fips=FIPS, year=Year)
+
 #Combine all climate data
-clim_df<-list(month_avg_mean,precip, frost_days,gdd, winter_tmin_avg, winter_tmax_avg, summer_tmax_avg) %>% 
+clim_df<-list(month_avg_mean,precip, frost_days,gdd, winter_tmin_avg, winter_tmax_avg, summer_tmax_avg, biovardf) %>% 
   purrr::reduce(full_join, by=c("fips", "year"))
 
 write_csv(clim_df, "Data/DataProcessing/df/climate.csv")

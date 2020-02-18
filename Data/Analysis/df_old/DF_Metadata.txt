@@ -1,6 +1,0 @@
-This folder contains the model statistic results of the Analysis.Rmd.
-
-The cp folder contains the counties pooled (cp) model results, while the ERS folder contains
-	the farm resource region ERS model results. 
-
-Further explanations and metadata are available under each folder. 
