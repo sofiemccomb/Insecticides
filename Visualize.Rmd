@@ -1,0 +1,129 @@
+---
+title: "Visualize"
+author: "Sofie McComb"
+date: "February 12, 2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+#### Load Packages
+
+```{r packages, message=F, warning=F}
+
+#Load the needed packages (install first if necessary)
+library(tidyverse) #Datatable manipulation
+library(sf) #shapefiles
+library(raster) #raster
+
+
+#Set options
+options(scipen=999) #no scientific notation (all)
+
+```
+
+
+
+
+
+
+
+## Final FIPS with county shapefile
+
+```{r}
+
+counties<-read_sf("C:/Users/shemc/Documents/UCSB/NLCD/Data/TIGER2018_Counties/tl_2018_us_county.shp") %>% 
+  st_transform("+proj=aea +lat_1=29.5 +lat_2=45.5 +lat_0=23 +lon_0=-96 + x_0=0 + y_0=0 +datum=NAD83 +units=m +no_defs +ellps=GRS80 +towgs84=0,0,0")
+finalfips<-read_csv("Data/Future/FinalFIPS.csv") %>% 
+    dplyr::mutate(FIPS=str_pad(FIPS, 5, pad = "0")) %>% 
+  dplyr::rename(GEOID=FIPS)
+counties_finalfips<-left_join(finalfips, counties, by="GEOID")
+st_write(counties_finalfips,"C:/Users/shemc/Documents/UCSB/NLCD/Data/Figures/final_fips_shp/counties_finalfips.shp")
+st_write(counties, "C:/Users/shemc/Documents/UCSB/NLCD/Data/TIGER2018_counties_projected/tl_2018_us_county_projected.shp")
+```
+
+
+#Change in covariates
+
+
+```{r}
+counties<-read_sf("C:/Users/shemc/Documents/UCSB/NLCD/Data/TIGER2018_Counties/tl_2018_us_county.shp") %>% 
+  st_transform("+proj=aea +lat_1=29.5 +lat_2=45.5 +lat_0=23 +lon_0=-96 + x_0=0 + y_0=0 +datum=NAD83 +units=m +no_defs +ellps=GRS80 +towgs84=0,0,0")
+
+ data_model_future<-read_csv("Data/Future/data_model_future.csv")
+ 
+ scenarios<-c("B1", "A2") #Scenarios to loop through
+  for(i in scenarios){
+    #Subset data by scenario and arrange in order
+      data_model_scenario<-data_model_future %>% filter(Scenario==i) %>% 
+        arrange(FIPS, Year, Scenario)
+    
+    #Get 2050 and current data as separate dataframes in order to subtract, and save ID
+      #2050
+      df_2050<-data_model_scenario %>% filter(Year==2050) %>% dplyr::select(-Year)#2050 data
+      ID<-df_2050 %>% dplyr::select(FIPS, Scenario, ASDCode, ERSCode)#Identifiers for both 2050 and 2017 because ordered
+      df_2050<-df_2050%>% dplyr::select(-FIPS, -Scenario, -ASDCode, -ERSCode)#Remove ID from 2050
+      
+      #Average between the years
+      df_current<-data_model_scenario %>% 
+        filter(Year!=2050) %>% 
+        group_by(FIPS, Scenario, ASDCode, ERSCode) %>% 
+        summarize(PercentCrop=mean(PercentCrop),
+                  LargeCropPatches=mean(LargeCropPatches),
+                  SoyGrains=mean(SoyGrains),Corn=mean(Corn),FruitVeg=mean(FruitVeg),
+                  NaturalCropEdge=mean(NaturalCropEdge),LandDiversity=mean(LandDiversity),
+                  AnnualPrecipitation=mean(AnnualPrecipitation),AnnualGDD=mean(AnnualGDD),
+                  JanuaryTmean=mean(AnnualGDD),AprilTmean=mean(AprilTmean),JulyTmean=mean(JulyTmean),OctoberTmean=mean(OctoberTmean),
+                  WinterTminavg=mean(WinterTminavg),SummerTmaxavg=mean(SummerTmaxavg),
+                  TmaxWarmestMonth=mean(TmaxWarmestMonth),TminColdestMonth=mean(TminColdestMonth)) %>% 
+        ungroup() %>% dplyr::select(-FIPS, -Scenario, -ASDCode, -ERSCode)#Remove ID
+  
+    #Subtract 2050-current and add back identifiers
+    df_diff<-df_2050-df_current#2050-current
+    df_diff_ID<-cbind(ID, df_diff)#Add identifiers back in
+    
+    varchange<-df_diff_ID %>% 
+      dplyr::mutate(FIPS=str_pad(FIPS, 5, pad = "0")) %>% 
+      dplyr::rename(GEOID=FIPS)
+    
+    counties_varchange<-left_join(varchange, counties, by="GEOID")
+    
+    st_write(counties_varchange,
+             paste0("C:/Users/shemc/Documents/UCSB/NLCD/Data/Figures/covariatechange/counties_varchange_",i ,".shp"))
+  
+    
+  }
+  
+```
+
+
+#Insecticide state values with counties
+
+```{r}
+
+states<-read_sf("C:/Users/shemc/Documents/UCSB/NLCD/Data/TIGER2018_States/tl_2018_us_state.shp") %>% 
+  st_transform("+proj=aea +lat_1=29.5 +lat_2=45.5 +lat_0=23 +lon_0=-96 + x_0=0 + y_0=0 +datum=NAD83 +units=m +no_defs +ellps=GRS80 +towgs84=0,0,0")
+
+stateinfo<-read_csv("Data/Future/statefips_comb_names.csv") %>% 
+  dplyr::rename(STATEFP=statefips) %>% 
+  dplyr::mutate(STATEFP=str_pad(STATEFP, 2, pad = "0"))
+
+states_comb<-full_join(stateinfo, states, by="STATEFP") %>% 
+    dplyr::mutate(statefips_comb=str_pad(statefips_comb, 2, pad = "0"))
+  
+
+insecticides_state<-read_csv("Data/Future/insecticides_state.csv") %>% 
+  dplyr::select(-X1) %>% 
+  dplyr::rename(statefips_comb=State) %>% 
+  dplyr::mutate(statefips_comb=str_pad(statefips_comb, 2, pad = "0"))
+
+states_insecticides<-full_join(insecticides_state, states_comb, by="statefips_comb") %>% 
+  dplyr::select(STATEFP, NAME, statefips_comb, statecombname, Scenario, everything())
+
+
+st_write(states_insecticides,"C:/Users/shemc/Documents/UCSB/NLCD/Data/Figures/state_insecticides/state_insecticides.shp")
+
+```
+

@@ -266,7 +266,6 @@ fulldata<-fulldata %>% #Changed edge metrics to use CountyArea instead (similar 
 ###Forecast NLCD Data for Present (2001-2016) 
 Prepared future nlcd data with fragstats calculations on the online R server for faster processing and memory storage. The R scripts used can be found under the server, and the R scripts can be found stored under the R/Future folder as NF_Future and NLCD_Future. NF_Future is the function created to do all the computation, and NLCD_Future carries our the function for the different desired years and gets the NLCD in an appropriate spreadsheet format. Will just put in the saved csvs below, where they were transfered from the online server.
 
-***Possibly need to change present climate data here with forecasted current climate data (just for model testing)
 
 ```{r}
 
@@ -307,15 +306,18 @@ ERS<-readxl::read_xls("Data/DataProcessing/ERS/ERSRegions_To_Counties.xls") %>%
 ASD<-readr::read_csv("Data/DataProcessing/ASD/ASD_County_Crosswalk.csv") %>% 
   dplyr::select(statecountyfips, StateASD)
   colnames(ASD)<-c("FIPS", "ASDCode")
-climate<-readr::read_csv("Data/DataProcessing/df/climate.csv") %>% 
-  dplyr::rename(FIPS=fips, Year=year)
+climate<-readr::read_csv("Data/DataProcessing/Climate/forecastedclimate.csv") %>% 
+  filter(Scenario=="Current") %>% 
+  dplyr::mutate(FIPS=as.numeric(FIPS)) %>% 
+  dplyr::select(-Scenario)
+
 
 #List and merge first four datasets by the unique combination of FIPS and Year Values
-fulldata<-list(coa, cdl, nlcd, LCP, climate) %>% 
+fulldata<-list(coa, cdl, nlcd, LCP) %>% 
   reduce(full_join, by=c("FIPS", "Year"))
 
 #Merge with ERS and ASD by just FIPS
-fulldata<-list(fulldata, ERS, ASD) %>% 
+fulldata<-list(fulldata, ERS, ASD, climate) %>% 
   reduce(full_join, by=c("FIPS"))
 
 
@@ -353,7 +355,7 @@ fulldata<-fulldata %>% #Changed edge metrics to use CountyArea instead (similar 
 ```
 
 
-#Foreast Data: All 4 current years, 2 scenarios (NLCD B1,A2)-using forecasted current chelsa data
+#Forecast Data: All 4 current years, 2 scenarios (NLCD B1,A2)-using forecasted current chelsa data
 
 Prepared future nlcd data with fragstats calculations on the online R server for faster processing and memory storage. The R scripts used can be found under the server, and the R scripts can be found stored under the R/Future folder as Final_NLCD_Future. 
 
