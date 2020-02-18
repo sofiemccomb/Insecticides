@@ -1,0 +1,49 @@
+statefips,statefips_comb,statename,statecombname
+1,1,Alabama,Alabama
+4,104,Arizona,"Southeast 1 (AZ, NV, UT)"
+5,5,Arkansas,Arkansas
+6,6,California,California
+8,105,Colorado,"Southeast 2 (CO, NM)"
+9,100,Connecticut,"New England (CT, ME, MA, NH, RI, VT)"
+10,101,Delaware,"East Coast (DE, MD, NJ)"
+12,12,Florida,Florida
+13,13,Georgia,Georgia
+16,16,Idaho,Idaho
+17,17,Illinois,Illinois
+18,18,Indiana,Indiana
+19,19,Iowa,Iowa
+20,20,Kansas,Kansas
+21,21,Kentucky,Kentucky
+22,22,Louisiana,Louisiana
+23,100,Maine,"New England (CT, ME, MA, NH, RI, VT)"
+24,101,Maryland,"East Coast (DE, MD, NJ)"
+25,100,Massachusetts,"New England (CT, ME, MA, NH, RI, VT)"
+26,26,Michigan,Michigan
+27,27,Minnesota,Minnesota
+28,28,Mississippi,Mississippi
+29,29,Missouri,Missouri
+30,103,Montana,"Northeast 2 (MT, WY)"
+31,31,Nebraska,Nebraska
+32,104,Nevada,"Southeast 1 (AZ, NV, UT)"
+33,100,New Hampshire,"New England (CT, ME, MA, NH, RI, VT)"
+34,101,New Jersey,"East Coast (DE, MD, NJ)"
+35,105,New Mexico,"Southeast 2 (CO, NM)"
+36,36,New York,New York
+37,37,North Carolina,North Carolina
+38,38,North Dakota,North Dakota
+39,39,Ohio,Ohio
+40,40,Oklahoma,Oklahoma
+41,102,Oregon,"Northeast 1 (OR, WA)"
+42,42,Pennsylvania,Pennsylvania
+44,100,Rhode Island,"New England (CT, ME, MA, NH, RI, VT)"
+45,45,South Carolina,South Carolina
+46,46,South  Dakota,South  Dakota
+47,47,Tennessee,Tennessee
+48,48,Texas,Texas
+49,104,Utah,"Southeast 1 (AZ, NV, UT)"
+50,100,Vermont,"New England (CT, ME, MA, NH, RI, VT)"
+51,51,Virginia,Virginia
+53,102,Washington,"Northeast 1 (OR, WA)"
+54,54,West Virginia,West Virginia
+55,55,Wisconsin,Wisconsin
+56,103,Wyoming,"Northeast 2 (MT, WY)"
