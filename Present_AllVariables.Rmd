@@ -1,0 +1,50 @@
+---
+title: "Present_AllVariables"
+author: "Sofie McComb"
+date: "February 18, 2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+This R Markdown document will perform the panel linear model regressions for determining the relationship of agricultural and landscape variables on insectide use in the present-day.
+
+Twoways (individual and time) fixed effects models will be run for each regression. Individual will be represented by ASDCode and time will be represented by year.
+
+ 
+## Data Preparation
+
+This section will load the necessary packages and data
+
+#### Load Packages
+
+```{r packages, message=F, warning=F}
+
+#Load the needed packages (install first if necessary)
+library(tidyverse) #Datatable manipulation
+library(purrr) #For reduce function using full_join
+library(car) # For calculating variance inflation factors (vif)
+library(broom) #Convert statistical analysis into df
+library(reshape2)#For wide to long data format
+library(clubSandwich) #for coeftest (cluster robust standard errors)
+
+#Set options
+options(scipen=999) #no scientific notation (all)
+
+```
+
+
+#### Load Data
+
+Loading the fulldata dataset created in the DataProcessing.Rmd, which was developed to perform the regression analyses,
+as well as fulldata_forecast for the forecasted versions of the 4 NLCD
+
+```{r data, message=F, warning=F}
+
+load("Data/DataProcessing/df/fulldata.rda")
+load("Data/DataProcessing/Future/df/fulldata_forecast.rda")
+
+```
+
