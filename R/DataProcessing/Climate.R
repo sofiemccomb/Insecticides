@@ -40,7 +40,15 @@ Oct_avg_mean<-avg_month_temp %>% filter(month==10) %>% dplyr::select(-month) %>%
 month_avg_mean<-list(Jan_avg_mean,Apr_avg_mean,Jul_avg_mean,Oct_avg_mean) %>% 
   purrr::reduce(full_join, by=c("fips", "year"))
 
-#Annual precipitation and growing season precipitation (October-April)
+#Average mean temperature for growing season (April-October)
+
+growingseason_temp<-avg_month_temp %>% 
+  filter(month==4|month==5|month==6|month==7|month==8|month==9|month==10) %>% 
+  group_by(fips, year) %>% 
+  summarize(growingseason_temp=mean(mean)) %>% 
+  ungroup()
+
+#Annual precipitation and growing season precipitation (April-October)
 sum_month_precip<-clim %>% 
   group_by(fips, year, month) %>% 
   summarize(monthsum = sum(prcp)) %>% 
@@ -55,7 +63,7 @@ annual_precip<-sum_month_precip %>%
 annual_precip$annual_prcp<-annual_precip$annual_prcp*25.4 #convert to mm
 
 growingseason_precip<-sum_month_precip %>% 
-  filter(month==10|month==11|month==12|month==1|month==2|month==3|month==4) %>% 
+  filter(month==4|month==5|month==6|month==7|month==8|month==9|month==10) %>% 
   group_by(fips, year) %>% 
   summarize(growingseason_prcp=sum(monthsum)) %>% 
   ungroup()
@@ -192,7 +200,7 @@ biovardf<-bioclimdf %>%
   dplyr::rename(fips=FIPS, year=Year)
 
 #Combine all climate data
-clim_df<-list(month_avg_mean,precip, frost_days,gdd, winter_tmin_avg, winter_tmax_avg, summer_tmax_avg, biovardf) %>% 
+clim_df<-list(month_avg_mean,growingseason_temp, precip, frost_days,gdd, winter_tmin_avg, winter_tmax_avg, summer_tmax_avg, biovardf) %>% 
   purrr::reduce(full_join, by=c("fips", "year"))
 
 write_csv(clim_df, "Data/DataProcessing/df/climate.csv")
