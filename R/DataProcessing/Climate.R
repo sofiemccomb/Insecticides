@@ -18,8 +18,8 @@ options(scipen=999) #no scientific notation (all)
 
 
 #Climate data
-clim_87_12<-read_csv("Data/DataProcessing/Climate/DAILY_IDW200_365_COA_1987_2012.csv")
-clim_17<-readr::read_csv("Data/DataProcessing/Climate/DAILY_WEATHER_IDW200_365_2017.csv")
+clim_87_12<-readr::read_csv("C:/Users/shemc/Documents/UCSB/NLCD/Data/Climate/DAILY_IDW200_365_COA_1987_2012.csv")
+clim_17<-readr::read_csv("C:/Users/shemc/Documents/UCSB/NLCD/Data/Climate/DAILY_WEATHER_IDW200_365_2017.csv")
 
 #Drop snow so same exact col order to rbind (and do not need snow)
 clim_87_12<-clim_87_12 %>% dplyr::select(-snow)

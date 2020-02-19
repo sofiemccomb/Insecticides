@@ -1,0 +1,1 @@
+The cp_corr.Rda files give the correlation values between each of the variables used in the regression models for counties pooled, for the list of models run. The name of each list is the name of the model run.
