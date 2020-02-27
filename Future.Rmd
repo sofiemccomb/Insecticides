@@ -58,7 +58,7 @@ crops_df<- data.frame() #empty df to add rows to
 #For each unique FIPS
 for (i in 1: length(uniqFIPS)){
     fips=uniqFIPS[i] #select FIPS
-    coa_fips<-coa_crops %>% filter(FIPS==fips) #filter for rows by fips
+    coa_fips<-coa_crops %>% filter(FIPS==fips) %>% arrange(-Year) #filter for rows by fips
     n_years<-nrow(coa_fips) #how many observations
     
     #Calculate change over 30 years period (only if available for all 7 years)
@@ -693,7 +693,7 @@ coa_2050<-readr::read_csv("Data/Future/df/crop_covariates_2050_proportions.csv")
   dat_fips_final<-inner_join(dat_fips, dat_fips_forecast, by="FIPS")
   fips_final<-dat_fips_final %>% 
     dplyr::mutate(FIPS=str_pad(FIPS, 5, pad = "0"))
-  write_csv(fips_final,"Data/Future/FinalFIPS.csv")
+  # write_csv(fips_final,"Data/Future/FinalFIPS.csv")
 
 
 ###############################
@@ -971,7 +971,7 @@ coa_2050<-readr::read_csv("Data/Future/df/crop_covariates_2050_proportions.csv")
 
 
 
-write_csv(insecticides_conus, "Data/Future/insecticides_conus.csv")
+#write_csv(insecticides_conus, "Data/Future/insecticides_conus.csv")
     
 ```
 
